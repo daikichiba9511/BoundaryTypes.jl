@@ -607,6 +607,28 @@ end
 
 ---
 
+## サンプル
+
+実行可能な包括的なサンプルが[`examples/`](examples/)ディレクトリに用意されています：
+
+- **01_basic_usage.jl** - 基本概念とバリデーションの基礎
+- **02_advanced_rules.jl** - 高度なバリデーションルールとカスタムバリデータ
+- **03_nested_models.jl** - ネストした構造体のバリデーション
+- **04_collections.jl** - 配列、ベクトル、セットのバリデーション
+- **05_error_handling.jl** - エラーハンドリングパターンとベストプラクティス
+- **06_real_world.jl** - 実際のユースケース（API、設定ファイル、ETLなど）
+
+サンプルの実行方法：
+```bash
+julia --project=. examples/01_basic_usage.jl
+```
+
+これらのサンプルはVSCodeのJulia拡張機能と連携して動作するよう設計されており、ホバードキュメント、オートコンプリート、定義へのジャンプ機能が利用できます。
+
+詳細は[`examples/README.md`](examples/README.md)をご覧ください。
+
+---
+
 ## 要件
 
 - Julia **1.12+**（Project.toml で指定）

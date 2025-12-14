@@ -80,7 +80,8 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 
 ### Documentation
 - [x] Helper functions for rule discovery (`available_rules`, `string_rules`, `numeric_rules`, `collection_rules`, `show_rule_examples`)
-- [ ] More examples in documentation
+- [x] Comprehensive examples directory with 6 practical examples
+- [x] Examples README with learning guide
 - [ ] Tutorial for common use cases
 - [ ] Performance guide
 - [ ] Migration guide from other validation libraries

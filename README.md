@@ -609,6 +609,28 @@ It is a **boundary validation library**, by design.
 
 ---
 
+## Examples
+
+Comprehensive, runnable examples are available in the [`examples/`](examples/) directory:
+
+- **01_basic_usage.jl** - Fundamental concepts and validation basics
+- **02_advanced_rules.jl** - Advanced validation rules and custom validators
+- **03_nested_models.jl** - Nested struct validation
+- **04_collections.jl** - Array, vector, and set validation
+- **05_error_handling.jl** - Error handling patterns and best practices
+- **06_real_world.jl** - Real-world use cases (APIs, config files, ETL, etc.)
+
+Run any example with:
+```bash
+julia --project=. examples/01_basic_usage.jl
+```
+
+The examples are designed to work well with VSCode's Julia extension, providing hover documentation, autocomplete, and go-to-definition features.
+
+See [`examples/README.md`](examples/README.md) for more details.
+
+---
+
 ## Requirements
 
 - Julia **1.12+** (as specified in Project.toml)

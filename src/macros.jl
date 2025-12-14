@@ -335,21 +335,12 @@ macro rules(Texpr, block)
         fname = fname_expr.value::Symbol
 
         rule_exprs = st.args[3:end]  # keep as-is (do not esc here)
-        # qualify rule calls like regex(...), minlen(...), secret() to BoundaryTypes.regex(...)
-        qualify_rule(ex) = begin
-            if ex isa Expr && ex.head == :call && ex.args[1] isa Symbol
-                # BoundaryTypes.<symbol>(...)
-                Expr(:call, Expr(:., :BoundaryTypes, QuoteNode(ex.args[1])), ex.args[2:end]...)
-            else
-                ex
-            end
-        end
 
         push!(reg, quote
             local T = getfield(@__MODULE__, $(QuoteNode(Tsym)))  # DataType
             local d = get!(BoundaryTypes._RULES, T, Dict{Symbol, Vector{Any}}())
             local arr = get!(d, $(QuoteNode(fname)), Any[])
-            local _rules = Any[$(map(qualify_rule, rule_exprs)...)]
+            local _rules = Any[$(rule_exprs...)]
             append!(arr, _rules)
         end)
     end
