@@ -79,6 +79,7 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 - [ ] Integration with common web frameworks
 
 ### Documentation
+- [x] Helper functions for rule discovery (`available_rules`, `string_rules`, `numeric_rules`, `collection_rules`, `show_rule_examples`)
 - [ ] More examples in documentation
 - [ ] Tutorial for common use cases
 - [ ] Performance guide
@@ -101,6 +102,7 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 - ✅ `show_rules` for introspection
 - ✅ `schema` for JSON Schema generation
 - ✅ Validation rules: `minlen`, `maxlen`, `regex`, `ge`, `le`, `gt`, `lt`, `between`, `multiple_of`, `email`, `url`, `uuid`, `choices`, `present`, `notnothing`, `secret`, `custom`, `each`
+- ✅ Helper functions for rule discovery: `available_rules`, `string_rules`, `numeric_rules`, `collection_rules`, `show_rule_examples`
 - ✅ Type mismatch detection
 - ✅ Extra field detection
 - ✅ Default value validation

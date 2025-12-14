@@ -217,6 +217,25 @@ custom(x -> x % 2 == 0; code=:even, msg="must be even")
 
 Rules are composable and executed **without fail-fast**.
 
+### Discovering Available Rules
+
+To help discover and learn about available validation rules, BoundaryTypes.jl provides helper functions:
+
+```julia
+# Show all available rules
+available_rules()
+
+# Show rules by category
+string_rules()
+numeric_rules()
+collection_rules()
+
+# Show comprehensive usage examples
+show_rule_examples()
+```
+
+These functions display formatted documentation with descriptions, signatures, and examples for each rule, making it easier to discover what validation options are available.
+
 ---
 
 ## Defaults and Optional Fields

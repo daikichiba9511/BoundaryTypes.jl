@@ -128,6 +128,25 @@ end
 - `secret()`: Mask values in error messages
 - `custom(f; code, msg)`: Custom validation logic
 
+### Discovering Available Rules
+
+To help discover and learn about available validation rules, BoundaryTypes.jl provides helper functions:
+
+```julia
+# Show all available rules
+available_rules()
+
+# Show rules by category
+string_rules()
+numeric_rules()
+collection_rules()
+
+# Show comprehensive usage examples
+show_rule_examples()
+```
+
+These functions display formatted documentation with descriptions, signatures, and examples for each rule.
+
 ### Comprehensive Error Reporting
 
 All validation errors are collected and reported together:

@@ -29,6 +29,11 @@ model_copy!
 ```@docs
 show_rules
 schema
+available_rules
+string_rules
+numeric_rules
+collection_rules
+show_rule_examples
 ```
 
 ## Error Types
