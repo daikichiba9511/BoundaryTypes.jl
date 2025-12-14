@@ -631,3 +631,338 @@ function default_msg(r::Rule)
     r.code === :notnothing && return "must not be nothing"
     return "validation failed"
 end
+
+# ============================================================================
+# Helper Functions for Rule Discovery
+# ============================================================================
+
+"""
+    RuleInfo
+
+Information about a validation rule for documentation purposes.
+
+# Fields
+- `name::Symbol`: Rule function name
+- `category::Symbol`: Category (`:string`, `:numeric`, `:collection`, `:other`)
+- `description::String`: Brief description
+- `signature::String`: Function signature
+- `example::String`: Usage example
+"""
+struct RuleInfo
+    name::Symbol
+    category::Symbol
+    description::String
+    signature::String
+    example::String
+end
+
+"""
+    _get_all_rules() -> Vector{RuleInfo}
+
+Internal function that returns metadata for all available validation rules.
+"""
+function _get_all_rules()
+    return [
+        # String Rules
+        RuleInfo(:minlen, :string, "Minimum string/collection length",
+                 "minlen(n; msg=nothing)",
+                 "field(:name, minlen(3))"),
+        RuleInfo(:maxlen, :string, "Maximum string/collection length",
+                 "maxlen(n; msg=nothing)",
+                 "field(:text, maxlen(280))"),
+        RuleInfo(:regex, :string, "Regular expression pattern matching",
+                 "regex(pattern; msg=nothing)",
+                 "field(:email, regex(r\"@\"))"),
+        RuleInfo(:email, :string, "Email address format validation",
+                 "email(; msg=nothing)",
+                 "field(:email, email())"),
+        RuleInfo(:url, :string, "URL format validation",
+                 "url(; msg=nothing)",
+                 "field(:website, url())"),
+        RuleInfo(:uuid, :string, "UUID format validation",
+                 "uuid(; msg=nothing)",
+                 "field(:id, uuid())"),
+        RuleInfo(:choices, :string, "Enum-like validation (allowed values)",
+                 "choices(values; msg=nothing)",
+                 "field(:status, choices([\"active\", \"inactive\"]))"),
+
+        # Numeric Rules
+        RuleInfo(:ge, :numeric, "Greater than or equal (≥)",
+                 "ge(n; msg=nothing)",
+                 "field(:age, ge(0))"),
+        RuleInfo(:le, :numeric, "Less than or equal (≤)",
+                 "le(n; msg=nothing)",
+                 "field(:age, le(150))"),
+        RuleInfo(:gt, :numeric, "Strictly greater than (>)",
+                 "gt(n; msg=nothing)",
+                 "field(:price, gt(0.0))"),
+        RuleInfo(:lt, :numeric, "Strictly less than (<)",
+                 "lt(n; msg=nothing)",
+                 "field(:temperature, lt(100.0))"),
+        RuleInfo(:between, :numeric, "Range validation (inclusive)",
+                 "between(min, max; msg=nothing)",
+                 "field(:score, between(1, 5))"),
+        RuleInfo(:multiple_of, :numeric, "Divisibility check",
+                 "multiple_of(n; msg=nothing)",
+                 "field(:quantity, multiple_of(10))"),
+
+        # Collection Rules
+        RuleInfo(:each, :collection, "Apply rule to each element",
+                 "each(rule; msg=nothing)",
+                 "field(:tags, each(minlen(3)))"),
+
+        # Other Rules
+        RuleInfo(:present, :other, "Require field presence in input",
+                 "present(; msg=nothing)",
+                 "field(:debug, present())"),
+        RuleInfo(:notnothing, :other, "Prohibit nothing values",
+                 "notnothing(; msg=nothing)",
+                 "field(:nickname, notnothing())"),
+        RuleInfo(:secret, :other, "Mark field as secret (mask in errors)",
+                 "secret()",
+                 "field(:password, secret())"),
+        RuleInfo(:custom, :other, "Custom validation logic",
+                 "custom(f; code=:custom, msg=nothing)",
+                 "field(:value, custom(x -> x % 2 == 0))"),
+    ]
+end
+
+"""
+    available_rules(; io::IO=stdout, category::Union{Nothing,Symbol}=nothing)
+
+Display all available validation rules with descriptions and examples.
+
+# Arguments
+- `io::IO`: Output stream (default: stdout)
+- `category::Union{Nothing,Symbol}`: Filter by category (`:string`, `:numeric`, `:collection`, `:other`)
+
+# Example
+```julia
+# Show all rules
+available_rules()
+
+# Show only string rules
+available_rules(category=:string)
+
+# Show only numeric rules
+available_rules(category=:numeric)
+```
+
+See also: [`string_rules`](@ref), [`numeric_rules`](@ref), [`collection_rules`](@ref)
+"""
+function available_rules(; io::IO=stdout, category::Union{Nothing,Symbol}=nothing)
+    rules = _get_all_rules()
+
+    if category !== nothing
+        rules = filter(r -> r.category == category, rules)
+    end
+
+    if isempty(rules)
+        println(io, "No rules found for category: $category")
+        return
+    end
+
+    println(io, "Available Validation Rules")
+    println(io, "=" ^ 80)
+    println(io)
+
+    # Group by category
+    categories = unique(r.category for r in rules)
+
+    for cat in [:string, :numeric, :collection, :other]
+        cat_rules = filter(r -> r.category == cat, rules)
+        isempty(cat_rules) && continue
+
+        cat_name = if cat == :string
+            "String Rules"
+        elseif cat == :numeric
+            "Numeric Rules"
+        elseif cat == :collection
+            "Collection Rules"
+        else
+            "Other Rules"
+        end
+
+        println(io, cat_name)
+        println(io, "-" ^ 80)
+
+        for rule in cat_rules
+            println(io, "  ", rule.name)
+            println(io, "    ", rule.description)
+            println(io, "    Signature: ", rule.signature)
+            println(io, "    Example:   ", rule.example)
+            println(io)
+        end
+    end
+
+    println(io, "=" ^ 80)
+    println(io, "For detailed documentation, use: ?", rules[1].name)
+    println(io, "Or call: string_rules(), numeric_rules(), collection_rules()")
+end
+
+"""
+    string_rules(; io::IO=stdout)
+
+Display all string validation rules.
+
+Shows rules for validating string values including length checks,
+pattern matching, and format validation.
+
+# Available String Rules
+- `minlen(n)`: Minimum string/collection length
+- `maxlen(n)`: Maximum string/collection length
+- `regex(pattern)`: Pattern matching
+- `email()`: Email format validation
+- `url()`: URL format validation
+- `uuid()`: UUID format validation
+- `choices(values)`: Enum-like validation
+
+# Example
+```julia
+string_rules()
+```
+
+See also: [`available_rules`](@ref), [`numeric_rules`](@ref)
+"""
+function string_rules(; io::IO=stdout)
+    available_rules(io=io, category=:string)
+end
+
+"""
+    numeric_rules(; io::IO=stdout)
+
+Display all numeric validation rules.
+
+Shows rules for validating numeric values including comparisons,
+ranges, and divisibility checks.
+
+# Available Numeric Rules
+- `ge(n)`: Greater than or equal (≥)
+- `le(n)`: Less than or equal (≤)
+- `gt(n)`: Strictly greater than (>)
+- `lt(n)`: Strictly less than (<)
+- `between(min, max)`: Range validation
+- `multiple_of(n)`: Divisibility check
+
+# Example
+```julia
+numeric_rules()
+```
+
+See also: [`available_rules`](@ref), [`string_rules`](@ref)
+"""
+function numeric_rules(; io::IO=stdout)
+    available_rules(io=io, category=:numeric)
+end
+
+"""
+    collection_rules(; io::IO=stdout)
+
+Display all collection validation rules.
+
+Shows rules for validating collection types (Vector, Set, Array).
+
+# Available Collection Rules
+- `each(rule)`: Apply rule to each element in collection
+
+# Example
+```julia
+collection_rules()
+```
+
+Note: `minlen` and `maxlen` also work with collections to validate their length.
+
+See also: [`available_rules`](@ref), [`string_rules`](@ref)
+"""
+function collection_rules(; io::IO=stdout)
+    available_rules(io=io, category=:collection)
+end
+
+"""
+    show_rule_examples(; io::IO=stdout)
+
+Display comprehensive examples of using validation rules.
+
+Shows practical examples combining multiple rules for common use cases.
+
+# Example
+```julia
+show_rule_examples()
+```
+
+See also: [`available_rules`](@ref)
+"""
+function show_rule_examples(; io::IO=stdout)
+    println(io, "Validation Rule Examples")
+    println(io, "=" ^ 80)
+    println(io)
+
+    println(io, "Basic String Validation")
+    println(io, "-" ^ 80)
+    println(io, """
+    @model struct User
+        username::String
+        email::String
+    end
+
+    @rules User begin
+        field(:username, minlen(3), maxlen(20))
+        field(:email, email(), maxlen(100))
+    end
+    """)
+    println(io)
+
+    println(io, "Numeric Constraints")
+    println(io, "-" ^ 80)
+    println(io, """
+    @model struct Product
+        price::Float64
+        quantity::Int
+        discount::Float64
+    end
+
+    @rules Product begin
+        field(:price, gt(0.0))                    # Must be positive
+        field(:quantity, ge(0), multiple_of(10))  # Non-negative, multiples of 10
+        field(:discount, between(0.0, 100.0))     # 0-100% discount
+    end
+    """)
+    println(io)
+
+    println(io, "Collection Validation")
+    println(io, "-" ^ 80)
+    println(io, """
+    @model struct Post
+        title::String
+        tags::Vector{String}
+    end
+
+    @rules Post begin
+        field(:title, minlen(1), maxlen(200))
+        field(:tags, minlen(1), maxlen(10), each(minlen(2)))
+        # At least 1 tag, max 10 tags, each tag at least 2 chars
+    end
+    """)
+    println(io)
+
+    println(io, "Advanced Validation")
+    println(io, "-" ^ 80)
+    println(io, """
+    @model struct Account
+        email::String
+        website::String
+        status::String
+        api_key::String
+    end
+
+    @rules Account begin
+        field(:email, email())
+        field(:website, url())
+        field(:status, choices(["active", "inactive", "suspended"]))
+        field(:api_key, minlen(32), secret())  # Masked in errors
+    end
+    """)
+    println(io)
+
+    println(io, "=" ^ 80)
+end

@@ -141,5 +141,6 @@ export @model, @rules, @validated_model, field,
         ValidationError, FieldError,
         minlen, maxlen, regex, ge, le, gt, lt, between, multiple_of,
         email, url, uuid, choices,
-        present, notnothing, secret, custom, each
+        present, notnothing, secret, custom, each,
+        available_rules, string_rules, numeric_rules, collection_rules, show_rule_examples
 end
