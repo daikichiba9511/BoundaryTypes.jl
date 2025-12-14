@@ -123,25 +123,56 @@ end
 
 Define validation rules for a field within an `@rules` block.
 
-This is a DSL syntax element that can only be used inside `@rules` macro blocks.
-It is not a regular function and will error if called directly.
+!!! warning "Macro-only syntax"
+    This is a DSL syntax element that **only works inside `@rules` macro blocks**.
+    It is not a regular function and will error if called directly.
 
 # Arguments
-- `name`: Field name as a quoted symbol (e.g., `:email`)
-- `rules...`: One or more validation rules to apply to the field
+- `name::Symbol`: Field name as a symbol (e.g., `:email`, `:password`)
+- `rules...`: One or more validation rules and/or attributes to apply
+
+# Available Rules
+- **String validation**: `minlen(n)`, `regex(pattern)`
+- **Numeric validation**: `ge(n)`, `le(n)`
+- **Presence validation**: `present()`, `notnothing()`
+- **Attributes**: `secret()` (masks value in errors)
+- **Custom**: `custom(fn; code=:code, msg="message")`
 
 # Example
 ```julia
+@model struct User
+    email::String
+    password::String
+    age::Int = 0
+    bio::Union{Nothing,String} = nothing
+end
+
 @rules User begin
-    field(:email, regex(r"@"))
+    # Multiple rules can be chained
+    field(:email, regex(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$"))
+
+    # Combine validation + secret attribute
+    field(:password, minlen(12), regex(r"[A-Z]"), secret())
+
+    # Numeric constraints
     field(:age, ge(0), le(150))
-    field(:password, minlen(8), secret())
+
+    # Optional fields - rules only apply when value is present
+    field(:bio, minlen(10))
 end
 ```
 
+# How It Works
+- Rules are applied in order during validation
+- All rules are checked (no fail-fast) to collect all errors
+- For optional fields (`Union{Nothing,T}`), rules are skipped if value is `nothing`
+- Use `present()` or `notnothing()` to enforce presence on optional fields
+
 # See Also
 - [`@rules`](@ref): The macro that processes `field()` declarations
-- Validation rules: [`minlen`](@ref), [`regex`](@ref), [`ge`](@ref), [`le`](@ref), [`secret`](@ref)
+- [`@model`](@ref): Define a validatable model
+- Rule builders: [`minlen`](@ref), [`regex`](@ref), [`ge`](@ref), [`le`](@ref),
+  [`present`](@ref), [`notnothing`](@ref), [`secret`](@ref), [`custom`](@ref)
 """
 function field(::Symbol, rules...)
     error("field() can only be used inside @rules macro block")
