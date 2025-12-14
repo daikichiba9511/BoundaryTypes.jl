@@ -1,3 +1,7 @@
+**[日本語版 README はこちら / Japanese README](README.ja.md)**
+
+---
+
 ⚠️ **Maintenance Notice**
 
 **This is a toy project and is NOT actively maintained.**

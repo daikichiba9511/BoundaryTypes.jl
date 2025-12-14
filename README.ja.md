@@ -1,3 +1,7 @@
+**[English README is available here / 英語版 README](README.md)**
+
+---
+
 ⚠️ **メンテナンスに関する注意**
 
 **これはトイプロジェクトであり、積極的にメンテナンスされていません。**
