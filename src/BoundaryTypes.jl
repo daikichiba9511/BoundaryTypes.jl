@@ -61,6 +61,35 @@ else
 end
 ```
 
+# Nested Struct Validation
+
+BoundaryTypes.jl automatically validates nested structs that are registered with `@model`:
+
+```julia
+@model struct Address
+    city::String
+    zipcode::String
+end
+
+@rules Address begin
+    field(:zipcode, regex(r"^\\d{5}\$"))
+end
+
+@model struct User
+    name::String
+    address::Address  # Nested model
+end
+
+# Nested validation happens automatically
+user = model_validate(User, Dict(
+    :name => "Alice",
+    :address => Dict(:city => "Tokyo", :zipcode => "12345")
+))
+
+# Error paths include nested field names
+# e.g., [:address, :zipcode]
+```
+
 # Exports
 
 ## Macros

@@ -64,6 +64,7 @@ BoundaryTypes.jl は**生の入力とドメイン型の間**に位置し、以�
 - ✅ `model_copy`によるイミュータブル/ミュータブル構造体の更新
 - ✅ `show_rules`によるイントロスペクション
 - ✅ `schema`による JSON Schema 生成
+- ✅ 自動再帰によるネストした構造体のバリデーション
 
 ---
 
@@ -330,12 +331,103 @@ acc = Account(username="alice", email="alice@example.com")
 
 各バリデーションエラーには以下が含まれます：
 
-- `path` — フィールドパス（将来のネストサポート）
+- `path` — フィールドパス（ネストしたフィールドをサポート：`[:address, :zipcode]`）
 - `code` — 機械可読エラーコード
 - `message` — 人間可読の説明
 - `got` — 問題のある値（`secret()`の場合はマスク）
 
 機密値は決して漏れません。
+
+---
+
+## ネストした構造体のバリデーション
+
+BoundaryTypes.jl は`@model`で登録されたネストした構造体を自動的にバリデーションします。
+
+```julia
+@model struct Address
+    city::String
+    zipcode::String
+end
+
+@rules Address begin
+    field(:city, minlen(1))
+    field(:zipcode, regex(r"^\d{5}$"))
+end
+
+@model struct User
+    name::String
+    address::Address  # ネストしたモデル
+end
+
+@rules User begin
+    field(:name, minlen(2))
+end
+
+# ネストしたバリデーションが自動的に行われる
+user = model_validate(User, Dict(
+    :name => "Alice",
+    :address => Dict(:city => "Tokyo", :zipcode => "12345")
+))
+
+# エラーパスにはネストしたフィールド名が含まれる
+model_validate(User, Dict(
+    :name => "Bob",
+    :address => Dict(:city => "Osaka", :zipcode => "invalid")
+))
+# => ValidationError with 1 error(s):
+#      - address.zipcode [regex]: does not match required pattern (got="invalid")
+```
+
+### 機能
+
+- **自動再帰**: ネストしたモデルが自動的にバリデーションされる
+- **深いネスト**: 任意のネスト深度をサポート
+- **明確なエラーパス**: エラーは完全なパスを表示（例：`address.zipcode`、`city.country.code`）
+- **オプションのネストフィールド**: `Union{Nothing,ModelType}`型のフィールドに対応
+- **ネストしたデフォルト値**: ネストした構造体のデフォルト値をサポート
+
+### 多段ネストの例
+
+```julia
+@model struct Country
+    name::String
+    code::String
+end
+
+@rules Country begin
+    field(:code, regex(r"^[A-Z]{2}$"))
+end
+
+@model struct City
+    name::String
+    country::Country
+end
+
+@model struct Office
+    address::String
+    city::City
+end
+
+# 深くネストしたバリデーション
+office = model_validate(Office, Dict(
+    :address => "123 Main St",
+    :city => Dict(
+        :name => "Tokyo",
+        :country => Dict(:name => "Japan", :code => "JP")
+    )
+))
+
+# どのレベルのエラーも完全なパスでキャッチされる
+model_validate(Office, Dict(
+    :address => "456 Elm St",
+    :city => Dict(
+        :name => "London",
+        :country => Dict(:name => "UK", :code => "GBR")  # 無効: 2文字であるべき
+    )
+))
+# => ValidationError: city.country.code [regex]: does not match required pattern
+```
 
 ---
 
@@ -430,6 +522,7 @@ json_schema = schema(Signup)
 - ✅ デフォルト値バリデーション
 - ✅ オプションフィールド処理（`Union{Nothing,T}`）
 - ✅ エラーメッセージでのシークレットフィールドマスキング
+- ✅ 自動再帰によるネストした構造体のバリデーション
 
 ---
 
@@ -439,7 +532,6 @@ json_schema = schema(Signup)
 
 - 型強制（`"123"` → `Int`）
 - コレクションバリデーション（`each(rule)`）
-- ネストされたモデルバリデーション
 - i18n エラーメッセージ
 
 ---

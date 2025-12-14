@@ -67,6 +67,7 @@ BoundaryTypes.jl sits **between raw input and domain types**, providing:
 - ✅ Immutable and mutable struct updates with `model_copy`
 - ✅ Introspection with `show_rules`
 - ✅ JSON Schema generation with `schema`
+- ✅ Nested struct validation with automatic recursion
 
 ---
 
@@ -333,12 +334,103 @@ acc = Account(username="alice", email="alice@example.com")
 
 Each validation error contains:
 
-- `path` — field path (future nested support)
+- `path` — field path (supports nested fields: `[:address, :zipcode]`)
 - `code` — machine-readable error code
 - `message` — human-readable description
 - `got` — offending value (masked if `secret()`)
 
 Sensitive values are never leaked.
+
+---
+
+## Nested Struct Validation
+
+BoundaryTypes.jl automatically validates nested structs that are registered with `@model`.
+
+```julia
+@model struct Address
+    city::String
+    zipcode::String
+end
+
+@rules Address begin
+    field(:city, minlen(1))
+    field(:zipcode, regex(r"^\d{5}$"))
+end
+
+@model struct User
+    name::String
+    address::Address  # Nested model
+end
+
+@rules User begin
+    field(:name, minlen(2))
+end
+
+# Nested validation happens automatically
+user = model_validate(User, Dict(
+    :name => "Alice",
+    :address => Dict(:city => "Tokyo", :zipcode => "12345")
+))
+
+# Error paths include nested field names
+model_validate(User, Dict(
+    :name => "Bob",
+    :address => Dict(:city => "Osaka", :zipcode => "invalid")
+))
+# => ValidationError with 1 error(s):
+#      - address.zipcode [regex]: does not match required pattern (got="invalid")
+```
+
+### Features
+
+- **Automatic recursion**: Nested models are validated automatically
+- **Deep nesting**: Supports arbitrary nesting depth
+- **Clear error paths**: Errors show the full path (e.g., `address.zipcode`, `city.country.code`)
+- **Optional nested fields**: Works with `Union{Nothing,ModelType}` fields
+- **Nested defaults**: Supports default values for nested structs
+
+### Example with Multiple Levels
+
+```julia
+@model struct Country
+    name::String
+    code::String
+end
+
+@rules Country begin
+    field(:code, regex(r"^[A-Z]{2}$"))
+end
+
+@model struct City
+    name::String
+    country::Country
+end
+
+@model struct Office
+    address::String
+    city::City
+end
+
+# Deep nested validation
+office = model_validate(Office, Dict(
+    :address => "123 Main St",
+    :city => Dict(
+        :name => "Tokyo",
+        :country => Dict(:name => "Japan", :code => "JP")
+    )
+))
+
+# Error at any level is caught with full path
+model_validate(Office, Dict(
+    :address => "456 Elm St",
+    :city => Dict(
+        :name => "London",
+        :country => Dict(:name => "UK", :code => "GBR")  # Invalid: should be 2 chars
+    )
+))
+# => ValidationError: city.country.code [regex]: does not match required pattern
+```
 
 ---
 
@@ -431,6 +523,7 @@ The following features are implemented and tested:
 - ✅ Default value validation
 - ✅ Optional field handling (`Union{Nothing,T}`)
 - ✅ Secret field masking in error messages
+- ✅ Nested struct validation with automatic recursion
 
 ---
 
@@ -440,7 +533,6 @@ Potential future extensions (without breaking the core design):
 
 - Type coercion (`"123"` → `Int`)
 - Collection validation (`each(rule)`)
-- Nested model validation
 - i18n error messages
 
 ---
