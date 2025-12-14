@@ -5,10 +5,10 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 ## High Priority
 
 ### Collection Validation
-- [ ] Implement `each(rule)` for validating array elements
-- [ ] Support `Vector{T}`, `Set{T}` validation
-- [ ] Add collection-specific rules (`minlen`, `maxlen` for collections)
-- [ ] Example: `field(:tags, each(minlen(3)))`
+- [x] Implement `each(rule)` for validating array elements
+- [x] Support `Vector{T}`, `Set{T}` validation
+- [x] Add collection-specific rules (`minlen`, `maxlen` for collections)
+- [x] Example: `field(:tags, each(minlen(3)))`
 
 ### Type Coercion
 - [ ] String to numeric conversion (`"123"` → `123`)
@@ -34,7 +34,7 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 - [ ] `email()` - dedicated email validation
 - [ ] `url()` - URL validation
 - [ ] `uuid()` - UUID validation
-- [ ] `maxlen(n)` - maximum string length
+- [x] `maxlen(n)` - maximum string/collection length
 - [ ] `choices(values)` - enum-like validation
   - Example: `field(:status, choices(["active", "inactive", "pending"]))`
 
@@ -100,7 +100,7 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 - ✅ `model_copy` / `model_copy!` for updating instances
 - ✅ `show_rules` for introspection
 - ✅ `schema` for JSON Schema generation
-- ✅ Validation rules: `minlen`, `regex`, `ge`, `le`, `present`, `notnothing`, `secret`, `custom`
+- ✅ Validation rules: `minlen`, `maxlen`, `regex`, `ge`, `le`, `present`, `notnothing`, `secret`, `custom`, `each`
 - ✅ Type mismatch detection
 - ✅ Extra field detection
 - ✅ Default value validation

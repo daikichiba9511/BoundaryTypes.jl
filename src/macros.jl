@@ -106,7 +106,7 @@ macro model(args...)
             fname == :_extra && error("_extra is a reserved field name for :allow mode")
 
             push!(fs_pairs, (fname,
-                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, true, $rhs, BoundaryTypes._is_optional_type($ftyp), false, BoundaryTypes.Rule[]))
+                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, true, $rhs, BoundaryTypes._is_optional_type($ftyp), false, Any[]))
             ))
 
         elseif st isa Expr && st.head == :(::)
@@ -117,7 +117,7 @@ macro model(args...)
             fname == :_extra && error("_extra is a reserved field name for :allow mode")
 
             push!(fs_pairs, (fname,
-                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, false, nothing, BoundaryTypes._is_optional_type($ftyp), false, BoundaryTypes.Rule[]))
+                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, false, nothing, BoundaryTypes._is_optional_type($ftyp), false, Any[]))
             ))
         end
     end
@@ -156,12 +156,14 @@ macro model(args...)
             for (k, v) in rs
                 if haskey(_fields, k)
                     local base = _fields[k]
-                    local rules = BoundaryTypes.Rule[]
+                    local rules = Any[]
                     local secret_flag = false
 
                     for item in v
                         if item isa BoundaryTypes.SecretTag
                             secret_flag = true
+                        elseif item isa BoundaryTypes.EachTag
+                            push!(rules, item)
                         elseif item isa BoundaryTypes.Rule
                             push!(rules, item)
                         end
@@ -362,11 +364,13 @@ macro rules(Texpr, block)
             for (k, v) in rs
                 if haskey(_fields, k)
                     local base = _fields[k]
-                    local rules = BoundaryTypes.Rule[]
+                    local rules = Any[]
                     local secret_flag = base.secret
                     for item in v
                         if item isa BoundaryTypes.SecretTag
                             secret_flag = true
+                        elseif item isa BoundaryTypes.EachTag
+                            push!(rules, item)
                         elseif item isa BoundaryTypes.Rule
                             push!(rules, item)
                         end
@@ -521,7 +525,7 @@ macro validated_model(args...)
             # Store field spec with default value
             # Note: _is_optional_type must be called at runtime, not at macro expansion time
             push!(fs_pairs, (fname,
-                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, true, $rhs, BoundaryTypes._is_optional_type($ftyp), false, BoundaryTypes.Rule[]))
+                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, true, $rhs, BoundaryTypes._is_optional_type($ftyp), false, Any[]))
             ))
 
             # Add field without default to struct definition
@@ -535,7 +539,7 @@ macro validated_model(args...)
             fname == :_extra && error("_extra is a reserved field name for :allow mode")
 
             push!(fs_pairs, (fname,
-                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, false, nothing, BoundaryTypes._is_optional_type($ftyp), false, BoundaryTypes.Rule[]))
+                :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, false, nothing, BoundaryTypes._is_optional_type($ftyp), false, Any[]))
             ))
 
             # Add field to struct definition
@@ -578,12 +582,14 @@ macro validated_model(args...)
             for (k, v) in rs
                 if haskey(_fields, k)
                     local base = _fields[k]
-                    local rules = BoundaryTypes.Rule[]
+                    local rules = Any[]
                     local secret_flag = false
 
                     for item in v
                         if item isa BoundaryTypes.SecretTag
                             secret_flag = true
+                        elseif item isa BoundaryTypes.EachTag
+                            push!(rules, item)
                         elseif item isa BoundaryTypes.Rule
                             push!(rules, item)
                         end

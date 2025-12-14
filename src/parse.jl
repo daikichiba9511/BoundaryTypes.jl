@@ -284,12 +284,51 @@ Apply all validation rules for a field and collect any errors.
 - Rule predicates are executed with error handling (exceptions count as failures)
 - Failed rules append `FieldError` entries to the errors vector
 - Secret fields have their values masked in error messages
+- `each(rule)` rules are applied to each element of a collection
 
 # Side Effects
 Mutates the `errors` vector by appending validation failures.
 """
 function apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::RuleCtx, path_prefix::Vector{Symbol}=Symbol[])
     for r in fs.rules
+        # Handle EachTag specially
+        if r isa EachTag
+            # Skip each() for optional fields with nothing value
+            if ctx.optional && value === nothing
+                continue
+            end
+
+            # Apply the wrapped rule to each element of the collection
+            if value isa Union{AbstractArray, AbstractSet}
+                for (idx, elem) in enumerate(value)
+                    ok = false
+                    try
+                        ok = r.rule.pred(elem, ctx)
+                    catch
+                        ok = false
+                    end
+
+                    if !ok
+                        msg = something(r.rule.msg, default_msg(r.rule))
+                        masked_value = mask_if_secret(elem, fs.secret)
+                        # Create path with array index: [:tags, Symbol("0")]
+                        elem_path = vcat(path_prefix, [fs.name, Symbol(string(idx - 1))])
+                        push!(errors, FieldError(elem_path, r.rule.code, msg, masked_value, fs.secret))
+                    end
+                end
+            else
+                # If value is not a collection, report an error
+                full_path = vcat(path_prefix, [fs.name])
+                push!(errors, FieldError(full_path, :type, "expected collection for each() rule", value, fs.secret))
+            end
+            continue
+        end
+
+        # Regular Rule handling
+        if !(r isa Rule)
+            continue
+        end
+
         # optional & nothing のときは present/notnothing 以外スキップ
         if ctx.optional && value === nothing
             if !(r.code in (:present, :notnothing))

@@ -99,7 +99,7 @@ Internal specification for a model field, inferred from struct definition and `@
 - `default_expr::Any`: Default value expression
 - `is_optional::Bool`: Whether field type is `Union{Nothing,T}`
 - `secret::Bool`: Whether to mask field value in error messages
-- `rules::Vector{Rule}`: Validation rules applied to this field
+- `rules::Vector{Any}`: Validation rules applied to this field (Rule or EachTag)
 
 # Inference Rules
 From struct definition:
@@ -117,7 +117,7 @@ struct FieldSpec
     default_expr::Any
     is_optional::Bool
     secret::Bool
-    rules::Vector{Rule}
+    rules::Vector{Any}  # Can contain Rule or EachTag
 end
 
 """

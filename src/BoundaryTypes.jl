@@ -139,6 +139,6 @@ export @model, @rules, @validated_model, field,
         model_copy, model_copy!, model_dump, model_dump_json,
         show_rules, schema,
         ValidationError, FieldError,
-        minlen, regex, ge, le,
-        present, notnothing, secret, custom
+        minlen, maxlen, regex, ge, le,
+        present, notnothing, secret, custom, each
 end

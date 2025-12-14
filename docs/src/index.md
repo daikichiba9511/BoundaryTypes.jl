@@ -102,7 +102,8 @@ end
 
 ### Available Validation Rules
 
-- `minlen(n)`: Minimum string length
+- `minlen(n)`: Minimum string/collection length
+- `maxlen(n)`: Maximum string/collection length
 - `regex(pattern)`: Regular expression matching
 - `ge(n)`: Greater than or equal (≥)
 - `le(n)`: Less than or equal (≤)
@@ -110,6 +111,7 @@ end
 - `notnothing()`: Prohibit `nothing` values
 - `secret()`: Mask values in error messages
 - `custom(f; code, msg)`: Custom validation logic
+- `each(rule)`: Apply rule to each element in a collection
 
 ### Comprehensive Error Reporting
 
@@ -155,6 +157,44 @@ end
     field(:bio, minlen(10))  # Only validated if provided and not nothing
 end
 ```
+
+### Collection Validation
+
+Validate arrays, vectors, and sets using the `each(rule)` combinator:
+
+```julia
+@model struct Post
+    title::String
+    tags::Vector{String}
+    scores::Vector{Int}
+end
+
+@rules Post begin
+    field(:title, minlen(1))
+    field(:tags, minlen(1), maxlen(10), each(minlen(3)))
+    # At least 1 tag, max 10 tags, each tag must be at least 3 characters
+
+    field(:scores, each(ge(0)), each(le(100)))
+    # All scores must be between 0 and 100
+end
+
+# Valid
+post = model_validate(Post, Dict(
+    :title => "My Post",
+    :tags => ["julia", "programming"],
+    :scores => [85, 90, 95]
+))
+
+# Error: second tag too short
+model_validate(Post, Dict(
+    :title => "My Post",
+    :tags => ["julia", "ab"],  # "ab" is too short
+    :scores => [85]
+))
+# => ValidationError: tags[1] [minlen]: too short (got="ab")
+```
+
+Supported collection types: `Vector{T}`, `Set{T}`, and any type implementing `AbstractArray` or `AbstractSet`.
 
 ## See Also
 

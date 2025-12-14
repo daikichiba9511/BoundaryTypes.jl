@@ -179,13 +179,18 @@ end
 
 #### String rules
 
-- `minlen(n)`
-- `regex(re)`
+- `minlen(n)` — minimum string/collection length
+- `maxlen(n)` — maximum string/collection length
+- `regex(re)` — pattern matching
 
 #### Numeric rules
 
-- `ge(n)`
-- `le(n)`
+- `ge(n)` — greater than or equal
+- `le(n)` — less than or equal
+
+#### Collection rules
+
+- `each(rule)` — apply rule to each element
 
 #### Presence rules
 
@@ -486,6 +491,86 @@ This is useful for:
 
 ---
 
+## Collection Validation
+
+BoundaryTypes.jl supports validating collections (arrays, vectors, sets) with the `each(rule)` combinator.
+
+### Basic Usage
+
+```julia
+@model struct Post
+    title::String
+    tags::Vector{String}
+end
+
+@rules Post begin
+    field(:title, minlen(1))
+    field(:tags, each(minlen(3)))  # Each tag must be at least 3 characters
+end
+
+# Valid
+post = model_validate(Post, Dict(
+    :title => "My Post",
+    :tags => ["julia", "programming", "web"]
+))
+
+# Invalid - second tag is too short
+model_validate(Post, Dict(
+    :title => "My Post",
+    :tags => ["julia", "ab", "web"]
+))
+# => ValidationError with 1 error(s):
+#      - tags[1] [minlen]: too short (got="ab")
+```
+
+### Collection Length Validation
+
+You can also validate the collection's length using `minlen` and `maxlen`:
+
+```julia
+@model struct Comment
+    text::String
+    tags::Vector{String}
+end
+
+@rules Comment begin
+    field(:text, minlen(1), maxlen(280))  # Twitter-style limit
+    field(:tags, minlen(1), maxlen(5))     # Between 1 and 5 tags
+end
+```
+
+### Combining Rules
+
+Multiple `each()` rules can be combined with collection-level constraints:
+
+```julia
+@model struct ScoreBoard
+    scores::Vector{Int}
+end
+
+@rules ScoreBoard begin
+    field(:scores, minlen(1), each(ge(0)), each(le(100)))
+    # At least 1 score, all between 0 and 100
+end
+```
+
+### Supported Collection Types
+
+- `Vector{T}` / `Array{T}`
+- `Set{T}`
+- Any type implementing `AbstractArray` or `AbstractSet`
+
+### Error Reporting
+
+Validation errors include the element index in the path:
+
+```julia
+# Error at index 2
+# => ValidationError: tags[2] [minlen]: too short
+```
+
+---
+
 ## What BoundaryTypes.jl Is _Not_
 
 - ❌ A full schema system
@@ -517,7 +602,8 @@ The following features are implemented and tested:
 - ✅ `model_copy` / `model_copy!` for updating instances
 - ✅ `show_rules` for introspection
 - ✅ `schema` for JSON Schema generation
-- ✅ Validation rules: `minlen`, `regex`, `ge`, `le`, `present`, `notnothing`, `secret`, `custom`
+- ✅ Validation rules: `minlen`, `maxlen`, `regex`, `ge`, `le`, `present`, `notnothing`, `secret`, `custom`, `each`
+- ✅ Collection validation for `Vector{T}`, `Set{T}`, and other array-like types
 - ✅ Type mismatch detection
 - ✅ Extra field detection
 - ✅ Default value validation
@@ -532,8 +618,10 @@ The following features are implemented and tested:
 Potential future extensions (without breaking the core design):
 
 - Type coercion (`"123"` → `Int`)
-- Collection validation (`each(rule)`)
+- Nested collection validation (`Vector{ModelType}`)
 - i18n error messages
+- Advanced string rules (`email()`, `url()`, `uuid()`)
+- Cross-field validation
 
 ---
 

@@ -176,13 +176,18 @@ end
 
 #### 文字列ルール
 
-- `minlen(n)`
-- `regex(re)`
+- `minlen(n)` — 最小文字列/コレクション長
+- `maxlen(n)` — 最大文字列/コレクション長
+- `regex(re)` — パターンマッチング
 
 #### 数値ルール
 
-- `ge(n)`
-- `le(n)`
+- `ge(n)` — 以上
+- `le(n)` — 以下
+
+#### コレクションルール
+
+- `each(rule)` — 各要素にルールを適用
 
 #### プレゼンスルール
 
@@ -484,6 +489,86 @@ json_schema = schema(Signup)
 
 ---
 
+## コレクションバリデーション
+
+BoundaryTypes.jl は`each(rule)`コンビネータを使用して、コレクション（配列、ベクタ、セット）のバリデーションをサポートしています。
+
+### 基本的な使い方
+
+```julia
+@model struct Post
+    title::String
+    tags::Vector{String}
+end
+
+@rules Post begin
+    field(:title, minlen(1))
+    field(:tags, each(minlen(3)))  # 各タグは最低3文字必要
+end
+
+# 妥当
+post = model_validate(Post, Dict(
+    :title => "My Post",
+    :tags => ["julia", "programming", "web"]
+))
+
+# 無効 - 2番目のタグが短すぎる
+model_validate(Post, Dict(
+    :title => "My Post",
+    :tags => ["julia", "ab", "web"]
+))
+# => ValidationError with 1 error(s):
+#      - tags[1] [minlen]: too short (got="ab")
+```
+
+### コレクション長のバリデーション
+
+`minlen`と`maxlen`を使用してコレクションの長さもバリデーションできます：
+
+```julia
+@model struct Comment
+    text::String
+    tags::Vector{String}
+end
+
+@rules Comment begin
+    field(:text, minlen(1), maxlen(280))  # Twitter風の制限
+    field(:tags, minlen(1), maxlen(5))     # 1〜5個のタグ
+end
+```
+
+### ルールの組み合わせ
+
+複数の`each()`ルールをコレクションレベルの制約と組み合わせることができます：
+
+```julia
+@model struct ScoreBoard
+    scores::Vector{Int}
+end
+
+@rules ScoreBoard begin
+    field(:scores, minlen(1), each(ge(0)), each(le(100)))
+    # 最低1つのスコア、すべて0〜100の間
+end
+```
+
+### サポートされるコレクション型
+
+- `Vector{T}` / `Array{T}`
+- `Set{T}`
+- `AbstractArray`または`AbstractSet`を実装する任意の型
+
+### エラー報告
+
+バリデーションエラーには要素のインデックスがパスに含まれます：
+
+```julia
+# インデックス2でのエラー
+# => ValidationError: tags[2] [minlen]: too short
+```
+
+---
+
 ## BoundaryTypes.jl が _でないもの_
 
 - ❌ 完全なスキーマシステム
@@ -516,7 +601,8 @@ json_schema = schema(Signup)
 - ✅ インスタンス更新のための`model_copy` / `model_copy!`
 - ✅ イントロスペクションのための`show_rules`
 - ✅ JSON Schema 生成のための`schema`
-- ✅ バリデーションルール：`minlen`、`regex`、`ge`、`le`、`present`、`notnothing`、`secret`、`custom`
+- ✅ バリデーションルール：`minlen`、`maxlen`、`regex`、`ge`、`le`、`present`、`notnothing`、`secret`、`custom`、`each`
+- ✅ `Vector{T}`、`Set{T}`、およびその他の配列型のコレクションバリデーション
 - ✅ 型ミスマッチ検出
 - ✅ 余分なフィールド検出
 - ✅ デフォルト値バリデーション
@@ -531,8 +617,10 @@ json_schema = schema(Signup)
 将来の拡張の可能性（コア設計を壊さずに）：
 
 - 型強制（`"123"` → `Int`）
-- コレクションバリデーション（`each(rule)`）
+- ネストしたコレクションバリデーション（`Vector{ModelType}`）
 - i18n エラーメッセージ
+- 高度な文字列ルール（`email()`、`url()`、`uuid()`）
+- フィールド間バリデーション
 
 ---
 

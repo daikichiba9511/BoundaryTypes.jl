@@ -42,6 +42,7 @@ BoundaryTypes.FieldError
 
 ```@docs
 minlen
+maxlen
 regex
 ge
 le
@@ -49,6 +50,7 @@ present
 notnothing
 secret
 custom
+each
 ```
 
 ## Internal Types

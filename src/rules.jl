@@ -146,7 +146,9 @@ le(n; msg=nothing) = Rule(:le, (v, ctx)->(v isa Number && v <= n), msg)
 """
     minlen(n; msg=nothing)
 
-Require that a string has at least `n` characters.
+Require that a string or collection has at least `n` elements/characters.
+
+For strings, checks character count. For collections (Vector, Set, etc.), checks element count.
 
 # Arguments
 - `n::Integer`: Minimum length (inclusive)
@@ -157,17 +159,29 @@ Require that a string has at least `n` characters.
 @model struct Account
     username::String
     password::String
+    tags::Vector{String}
 end
 
 @rules Account begin
     field(:username, minlen(3))   # At least 3 characters
     field(:password, minlen(12))  # At least 12 characters
+    field(:tags, minlen(1))       # At least 1 tag required
 end
 ```
 
-See also: [`regex`](@ref)
+See also: [`regex`](@ref), [`maxlen`](@ref)
 """
-minlen(n; msg=nothing) = Rule(:minlen, (v, ctx)->(v isa AbstractString && length(v) >= n), msg)
+function minlen(n; msg=nothing)
+    return Rule(:minlen, (v, ctx) -> begin
+        if v isa AbstractString
+            return length(v) >= n
+        elseif v isa Union{AbstractArray, AbstractSet}
+            return length(v) >= n
+        else
+            return false
+        end
+    end, msg)
+end
 
 """
     regex(re::Regex; msg=nothing)
@@ -227,6 +241,103 @@ See also: [`Rule`](@ref)
 custom(f; code::Symbol=:custom, msg=nothing) = Rule(code, (v, ctx)->Bool(f(v)), msg)
 
 """
+    EachTag
+
+Internal wrapper type for the `each(rule)` validation rule.
+
+Stores a rule that should be applied to each element of a collection.
+
+See also: [`each`](@ref)
+"""
+struct EachTag
+    rule::Rule
+end
+
+"""
+    each(rule; msg=nothing)
+
+Apply a validation rule to each element of a collection (Array, Vector, Set, etc.).
+
+This rule validates that every element in the collection satisfies the given rule.
+If any element fails validation, an error is recorded with the element's index in the path.
+
+# Arguments
+- `rule::Rule`: The validation rule to apply to each element
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct TaggedPost
+    tags::Vector{String}
+    scores::Vector{Int}
+end
+
+@rules TaggedPost begin
+    field(:tags, each(minlen(3)))     # Each tag must be at least 3 characters
+    field(:scores, each(ge(0)))       # Each score must be non-negative
+end
+
+# Valid
+post = model_validate(TaggedPost, Dict(
+    :tags => ["julia", "programming", "web"],
+    :scores => [10, 20, 30]
+))
+
+# Invalid - "ab" is too short
+model_validate(TaggedPost, Dict(
+    :tags => ["julia", "ab", "web"],
+    :scores => [10, 20, 30]
+))
+# => ValidationError: tags[1] [minlen]: string too short
+```
+
+See also: [`minlen`](@ref), [`maxlen`](@ref)
+"""
+function each(rule; msg=nothing)
+    # Return an EachTag wrapper instead of a Rule
+    # This allows special handling in apply_rules!
+    return EachTag(rule)
+end
+
+"""
+    maxlen(n; msg=nothing)
+
+Require that a string or collection has at most `n` elements/characters.
+
+For strings, checks character count. For collections (Vector, Set, etc.), checks element count.
+
+# Arguments
+- `n::Integer`: Maximum length (inclusive)
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Comment
+    text::String
+    tags::Vector{String}
+end
+
+@rules Comment begin
+    field(:text, maxlen(280))    # Twitter-style character limit
+    field(:tags, maxlen(5))      # At most 5 tags
+end
+```
+
+See also: [`minlen`](@ref)
+"""
+function maxlen(n; msg=nothing)
+    return Rule(:maxlen, (v, ctx) -> begin
+        if v isa AbstractString
+            return length(v) <= n
+        elseif v isa Union{AbstractArray, AbstractSet}
+            return length(v) <= n
+        else
+            return false
+        end
+    end, msg)
+end
+
+"""
     default_msg(r::Rule)
 
 Return the default error message for a built-in rule code.
@@ -240,7 +351,8 @@ Return the default error message for a built-in rule code.
 This function is used internally when a rule does not provide a custom message.
 """
 function default_msg(r::Rule)
-    r.code === :minlen     && return "string too short"
+    r.code === :minlen     && return "too short"
+    r.code === :maxlen     && return "too long"
     r.code === :regex      && return "does not match required pattern"
     r.code === :ge         && return "must satisfy >= constraint"
     r.code === :le         && return "must satisfy <= constraint"
