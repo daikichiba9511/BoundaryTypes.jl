@@ -144,6 +144,123 @@ See also: [`ge`](@ref)
 le(n; msg=nothing) = Rule(:le, (v, ctx)->(v isa Number && v <= n), msg)
 
 """
+    gt(n; msg=nothing)
+
+Require that a numeric value is strictly greater than `n`.
+
+# Arguments
+- `n`: Minimum value (exclusive)
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Product
+    price::Float64
+    discount_percent::Float64
+end
+
+@rules Product begin
+    field(:price, gt(0.0))              # Price must be positive (> 0)
+    field(:discount_percent, gt(0.0))   # Discount must be greater than 0
+end
+```
+
+See also: [`ge`](@ref), [`lt`](@ref), [`between`](@ref)
+"""
+gt(n; msg=nothing) = Rule(:gt, (v, ctx)->(v isa Number && v > n), msg)
+
+"""
+    lt(n; msg=nothing)
+
+Require that a numeric value is strictly less than `n`.
+
+# Arguments
+- `n`: Maximum value (exclusive)
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Measurement
+    temperature::Float64
+    humidity::Float64
+end
+
+@rules Measurement begin
+    field(:temperature, lt(100.0))  # Must be below 100
+    field(:humidity, lt(100.0))     # Humidity percentage below 100
+end
+```
+
+See also: [`le`](@ref), [`gt`](@ref), [`between`](@ref)
+"""
+lt(n; msg=nothing) = Rule(:lt, (v, ctx)->(v isa Number && v < n), msg)
+
+"""
+    between(min, max; msg=nothing)
+
+Require that a numeric value is within the range [min, max] (inclusive).
+
+# Arguments
+- `min`: Minimum value (inclusive)
+- `max`: Maximum value (inclusive)
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Rating
+    score::Int
+    confidence::Float64
+end
+
+@rules Rating begin
+    field(:score, between(1, 5))           # Score from 1 to 5
+    field(:confidence, between(0.0, 1.0))  # Confidence from 0.0 to 1.0
+end
+```
+
+See also: [`ge`](@ref), [`le`](@ref), [`gt`](@ref), [`lt`](@ref)
+"""
+function between(min, max; msg=nothing)
+    return Rule(:between, (v, ctx) -> (v isa Number && min <= v <= max), msg)
+end
+
+"""
+    multiple_of(n; msg=nothing)
+
+Require that a numeric value is a multiple of `n`.
+
+# Arguments
+- `n`: The divisor (must be > 0)
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Inventory
+    quantity::Int
+    batch_size::Int
+end
+
+@rules Inventory begin
+    field(:quantity, multiple_of(10))   # Must be in multiples of 10
+    field(:batch_size, multiple_of(5))  # Must be in multiples of 5
+end
+
+# Valid
+inventory = model_validate(Inventory, Dict(:quantity => 100, :batch_size => 25))
+
+# Invalid
+model_validate(Inventory, Dict(:quantity => 103, :batch_size => 25))
+# => ValidationError: quantity [multiple_of]: must be a multiple of the specified value
+```
+
+See also: [`custom`](@ref)
+"""
+function multiple_of(n; msg=nothing)
+    n > 0 || throw(ArgumentError("multiple_of divisor must be positive"))
+    return Rule(:multiple_of, (v, ctx) -> (v isa Number && v % n == 0), msg)
+end
+
+"""
     minlen(n; msg=nothing)
 
 Require that a string or collection has at least `n` elements/characters.
@@ -338,6 +455,152 @@ function maxlen(n; msg=nothing)
 end
 
 """
+    email(; msg=nothing)
+
+Validate that a string is a valid email address format.
+
+Uses a reasonable regex pattern for common email validation.
+For production use, consider using a dedicated email validation library.
+
+# Arguments
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct User
+    email::String
+end
+
+@rules User begin
+    field(:email, email())
+end
+
+# Valid
+user = model_validate(User, Dict(:email => "user@example.com"))
+
+# Invalid
+model_validate(User, Dict(:email => "invalid-email"))
+# => ValidationError: email [email]: invalid email format
+```
+
+See also: [`regex`](@ref), [`url`](@ref)
+"""
+function email(; msg=nothing)
+    # Simple but reasonable email regex
+    # Based on HTML5 email validation pattern
+    email_pattern = r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+    return Rule(:email, (v, ctx) -> (v isa AbstractString && occursin(email_pattern, v)), msg)
+end
+
+"""
+    url(; msg=nothing)
+
+Validate that a string is a valid URL format.
+
+Supports http, https, ftp, and ftps protocols.
+
+# Arguments
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Bookmark
+    url::String
+end
+
+@rules Bookmark begin
+    field(:url, url())
+end
+
+# Valid
+bookmark = model_validate(Bookmark, Dict(:url => "https://example.com"))
+
+# Invalid
+model_validate(Bookmark, Dict(:url => "not-a-url"))
+# => ValidationError: url [url]: invalid URL format
+```
+
+See also: [`regex`](@ref), [`email`](@ref)
+"""
+function url(; msg=nothing)
+    # URL regex pattern supporting http(s) and ftp(s)
+    url_pattern = r"^(https?|ftps?)://[^\s/$.?#].[^\s]*$"i
+    return Rule(:url, (v, ctx) -> (v isa AbstractString && occursin(url_pattern, v)), msg)
+end
+
+"""
+    uuid(; msg=nothing)
+
+Validate that a string is a valid UUID (Universally Unique Identifier) format.
+
+Supports both hyphenated and non-hyphenated UUID formats.
+
+# Arguments
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Resource
+    id::String
+end
+
+@rules Resource begin
+    field(:id, uuid())
+end
+
+# Valid
+resource = model_validate(Resource, Dict(:id => "550e8400-e29b-41d4-a716-446655440000"))
+
+# Invalid
+model_validate(Resource, Dict(:id => "not-a-uuid"))
+# => ValidationError: id [uuid]: invalid UUID format
+```
+
+See also: [`regex`](@ref)
+"""
+function uuid(; msg=nothing)
+    # UUID regex pattern (both hyphenated and non-hyphenated)
+    uuid_pattern = r"^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$"i
+    return Rule(:uuid, (v, ctx) -> (v isa AbstractString && occursin(uuid_pattern, v)), msg)
+end
+
+"""
+    choices(values; msg=nothing)
+
+Validate that a value is one of the allowed choices (enum-like validation).
+
+# Arguments
+- `values`: Collection of allowed values (Vector, Set, Tuple, etc.)
+- `msg::Union{Nothing,String}`: Custom error message (optional)
+
+# Example
+```julia
+@model struct Task
+    status::String
+    priority::String
+end
+
+@rules Task begin
+    field(:status, choices(["pending", "active", "completed", "archived"]))
+    field(:priority, choices(["low", "medium", "high"]))
+end
+
+# Valid
+task = model_validate(Task, Dict(:status => "active", :priority => "high"))
+
+# Invalid
+model_validate(Task, Dict(:status => "invalid", :priority => "high"))
+# => ValidationError: status [choices]: must be one of the allowed values
+```
+
+See also: [`custom`](@ref)
+"""
+function choices(values; msg=nothing)
+    allowed_set = Set(values)
+    return Rule(:choices, (v, ctx) -> (v in allowed_set), msg)
+end
+
+"""
     default_msg(r::Rule)
 
 Return the default error message for a built-in rule code.
@@ -356,6 +619,14 @@ function default_msg(r::Rule)
     r.code === :regex      && return "does not match required pattern"
     r.code === :ge         && return "must satisfy >= constraint"
     r.code === :le         && return "must satisfy <= constraint"
+    r.code === :gt         && return "must satisfy > constraint"
+    r.code === :lt         && return "must satisfy < constraint"
+    r.code === :between    && return "must be within range"
+    r.code === :multiple_of && return "must be a multiple of the specified value"
+    r.code === :email      && return "invalid email format"
+    r.code === :url        && return "invalid URL format"
+    r.code === :uuid       && return "invalid UUID format"
+    r.code === :choices    && return "must be one of the allowed values"
     r.code === :present    && return "field must be present"
     r.code === :notnothing && return "must not be nothing"
     return "validation failed"

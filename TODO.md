@@ -31,18 +31,18 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
   - Example: `users[0].email`, `addresses[2].zipcode`
 
 ### Advanced String Rules
-- [ ] `email()` - dedicated email validation
-- [ ] `url()` - URL validation
-- [ ] `uuid()` - UUID validation
+- [x] `email()` - dedicated email validation
+- [x] `url()` - URL validation
+- [x] `uuid()` - UUID validation
 - [x] `maxlen(n)` - maximum string/collection length
-- [ ] `choices(values)` - enum-like validation
+- [x] `choices(values)` - enum-like validation
   - Example: `field(:status, choices(["active", "inactive", "pending"]))`
 
 ### Advanced Numeric Rules
-- [ ] `gt(n)` - strictly greater than
-- [ ] `lt(n)` - strictly less than
-- [ ] `between(min, max)` - range validation
-- [ ] `multiple_of(n)` - divisibility check
+- [x] `gt(n)` - strictly greater than
+- [x] `lt(n)` - strictly less than
+- [x] `between(min, max)` - range validation
+- [x] `multiple_of(n)` - divisibility check
 
 ## Lower Priority
 
@@ -100,7 +100,7 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 - ✅ `model_copy` / `model_copy!` for updating instances
 - ✅ `show_rules` for introspection
 - ✅ `schema` for JSON Schema generation
-- ✅ Validation rules: `minlen`, `maxlen`, `regex`, `ge`, `le`, `present`, `notnothing`, `secret`, `custom`, `each`
+- ✅ Validation rules: `minlen`, `maxlen`, `regex`, `ge`, `le`, `gt`, `lt`, `between`, `multiple_of`, `email`, `url`, `uuid`, `choices`, `present`, `notnothing`, `secret`, `custom`, `each`
 - ✅ Type mismatch detection
 - ✅ Extra field detection
 - ✅ Default value validation

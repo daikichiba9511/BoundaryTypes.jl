@@ -179,11 +179,19 @@ end
 - `minlen(n)` — 最小文字列/コレクション長
 - `maxlen(n)` — 最大文字列/コレクション長
 - `regex(re)` — パターンマッチング
+- `email()` — メールアドレス検証
+- `url()` — URL形式検証
+- `uuid()` — UUID形式検証
+- `choices(values)` — 列挙型的な検証
 
 #### 数値ルール
 
-- `ge(n)` — 以上
-- `le(n)` — 以下
+- `ge(n)` — 以上（≥）
+- `le(n)` — 以下（≤）
+- `gt(n)` — より大きい（>）
+- `lt(n)` — より小さい（<）
+- `between(min, max)` — 範囲検証（両端含む）
+- `multiple_of(n)` — 倍数チェック
 
 #### コレクションルール
 
@@ -601,8 +609,10 @@ end
 - ✅ インスタンス更新のための`model_copy` / `model_copy!`
 - ✅ イントロスペクションのための`show_rules`
 - ✅ JSON Schema 生成のための`schema`
-- ✅ バリデーションルール：`minlen`、`maxlen`、`regex`、`ge`、`le`、`present`、`notnothing`、`secret`、`custom`、`each`
+- ✅ バリデーションルール：`minlen`、`maxlen`、`regex`、`ge`、`le`、`gt`、`lt`、`between`、`multiple_of`、`email`、`url`、`uuid`、`choices`、`present`、`notnothing`、`secret`、`custom`、`each`
 - ✅ `Vector{T}`、`Set{T}`、およびその他の配列型のコレクションバリデーション
+- ✅ 高度な文字列検証（メール、URL、UUID形式）
+- ✅ 高度な数値検証（厳密な不等号、範囲、倍数）
 - ✅ 型ミスマッチ検出
 - ✅ 余分なフィールド検出
 - ✅ デフォルト値バリデーション
@@ -618,9 +628,8 @@ end
 
 - 型強制（`"123"` → `Int`）
 - ネストしたコレクションバリデーション（`Vector{ModelType}`）
-- i18n エラーメッセージ
-- 高度な文字列ルール（`email()`、`url()`、`uuid()`）
 - フィールド間バリデーション
+- i18n エラーメッセージ
 
 ---
 

@@ -40,17 +40,42 @@ BoundaryTypes.FieldError
 
 ## Validation Rules
 
+### String Rules
+
 ```@docs
 minlen
 maxlen
 regex
+email
+url
+uuid
+choices
+```
+
+### Numeric Rules
+
+```@docs
 ge
 le
+gt
+lt
+between
+multiple_of
+```
+
+### Collection Rules
+
+```@docs
+each
+```
+
+### Other Rules
+
+```@docs
 present
 notnothing
 secret
 custom
-each
 ```
 
 ## Internal Types

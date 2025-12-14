@@ -182,11 +182,19 @@ end
 - `minlen(n)` — minimum string/collection length
 - `maxlen(n)` — maximum string/collection length
 - `regex(re)` — pattern matching
+- `email()` — email address validation
+- `url()` — URL format validation
+- `uuid()` — UUID format validation
+- `choices(values)` — enum-like validation
 
 #### Numeric rules
 
-- `ge(n)` — greater than or equal
-- `le(n)` — less than or equal
+- `ge(n)` — greater than or equal (≥)
+- `le(n)` — less than or equal (≤)
+- `gt(n)` — strictly greater than (>)
+- `lt(n)` — strictly less than (<)
+- `between(min, max)` — range validation (inclusive)
+- `multiple_of(n)` — divisibility check
 
 #### Collection rules
 
@@ -602,8 +610,10 @@ The following features are implemented and tested:
 - ✅ `model_copy` / `model_copy!` for updating instances
 - ✅ `show_rules` for introspection
 - ✅ `schema` for JSON Schema generation
-- ✅ Validation rules: `minlen`, `maxlen`, `regex`, `ge`, `le`, `present`, `notnothing`, `secret`, `custom`, `each`
+- ✅ Validation rules: `minlen`, `maxlen`, `regex`, `ge`, `le`, `gt`, `lt`, `between`, `multiple_of`, `email`, `url`, `uuid`, `choices`, `present`, `notnothing`, `secret`, `custom`, `each`
 - ✅ Collection validation for `Vector{T}`, `Set{T}`, and other array-like types
+- ✅ Advanced string validation (email, URL, UUID formats)
+- ✅ Advanced numeric validation (strict inequalities, ranges, multiples)
 - ✅ Type mismatch detection
 - ✅ Extra field detection
 - ✅ Default value validation
@@ -619,9 +629,8 @@ Potential future extensions (without breaking the core design):
 
 - Type coercion (`"123"` → `Int`)
 - Nested collection validation (`Vector{ModelType}`)
-- i18n error messages
-- Advanced string rules (`email()`, `url()`, `uuid()`)
 - Cross-field validation
+- i18n error messages
 
 ---
 

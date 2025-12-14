@@ -102,16 +102,31 @@ end
 
 ### Available Validation Rules
 
+#### String Rules
 - `minlen(n)`: Minimum string/collection length
 - `maxlen(n)`: Maximum string/collection length
 - `regex(pattern)`: Regular expression matching
+- `email()`: Email address validation
+- `url()`: URL format validation
+- `uuid()`: UUID format validation
+- `choices(values)`: Enum-like validation
+
+#### Numeric Rules
 - `ge(n)`: Greater than or equal (≥)
 - `le(n)`: Less than or equal (≤)
+- `gt(n)`: Strictly greater than (>)
+- `lt(n)`: Strictly less than (<)
+- `between(min, max)`: Range validation (inclusive)
+- `multiple_of(n)`: Divisibility check
+
+#### Collection Rules
+- `each(rule)`: Apply rule to each element in a collection
+
+#### Other Rules
 - `present()`: Require field presence in input
 - `notnothing()`: Prohibit `nothing` values
 - `secret()`: Mask values in error messages
 - `custom(f; code, msg)`: Custom validation logic
-- `each(rule)`: Apply rule to each element in a collection
 
 ### Comprehensive Error Reporting
 

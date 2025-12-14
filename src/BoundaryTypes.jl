@@ -139,6 +139,7 @@ export @model, @rules, @validated_model, field,
         model_copy, model_copy!, model_dump, model_dump_json,
         show_rules, schema,
         ValidationError, FieldError,
-        minlen, maxlen, regex, ge, le,
+        minlen, maxlen, regex, ge, le, gt, lt, between, multiple_of,
+        email, url, uuid, choices,
         present, notnothing, secret, custom, each
 end
