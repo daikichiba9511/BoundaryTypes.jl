@@ -1,0 +1,19 @@
+name = "BoundaryTypes"
+uuid = "87732bf5-8483-415b-8bb0-ce5aec1534ed"
+version = "0.1.0"
+authors = ["daikichiba9511 <daikichiba.tech.ml@gmail.com>"]
+
+[deps]
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+LanguageServer = "2b0e0bc5-e4fd-59b4-8912-456d1b03d8d7"
+LiveServer = "16fef848-5104-11e9-1b77-fb7a48bbb589"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+JSON3 = "1.14.3"
+LanguageServer = "4.5.1"
+LiveServer = "1.5.0"
+Revise = "3.12.3"
+Test = "1.11.0"
+julia = "1.12"

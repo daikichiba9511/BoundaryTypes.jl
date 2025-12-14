@@ -1,0 +1,6 @@
+[deps]
+BoundaryTypes = "87732bf5-8483-415b-8bb0-ce5aec1534ed"
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+
+[sources]
+BoundaryTypes = {path = "/Users/chibadaimare/work/boundary-types"}
