@@ -102,7 +102,149 @@ function mask_if_secret(value, secret::Bool)
 end
 
 """
-    apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::RuleCtx)
+    _is_registered_model(T)
+
+Internal helper to check if a type is registered as a model.
+
+# Arguments
+- `T`: Type to check
+
+# Returns
+- `Bool`: `true` if `T` is registered in `_MODEL_SPECS`, `false` otherwise
+"""
+function _is_registered_model(T)
+    return haskey(_MODEL_SPECS, T)
+end
+
+"""
+    _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field_type::Type, raw_value, path_prefix::Vector{Symbol}, strict::Bool, extra::Symbol)
+
+Recursively validate a nested model field.
+
+# Arguments
+- `errors::Vector{FieldError}`: Error accumulator (mutated)
+- `field_name::Symbol`: Name of the field being validated
+- `field_type::Type`: Type of the nested model
+- `raw_value`: Raw input value for the nested model
+- `path_prefix::Vector{Symbol}`: Path prefix for nested fields
+- `strict::Bool`: Strict type checking flag
+- `extra::Symbol`: How to handle extra fields
+
+# Returns
+- `Union{Any,Nothing}`: Validated nested instance, or `nothing` if validation failed
+
+# Side Effects
+Appends validation errors to the `errors` vector with proper path prefixes.
+"""
+function _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field_type::Type, raw_value, path_prefix::Vector{Symbol}, strict::Bool, extra::Symbol)
+    # Normalize the raw value to Dict format
+    nested_input = try
+        normalize(raw_value)
+    catch e
+        # If normalization fails, it's a type error
+        push!(errors, FieldError(vcat(path_prefix, [field_name]), :type,
+                                "expected Dict/NamedTuple for nested model, got $(typeof(raw_value))",
+                                raw_value, false))
+        return nothing
+    end
+
+    # Recursively validate the nested model
+    nested_spec = _MODEL_SPECS[field_type]
+    nested_errors = FieldError[]
+
+    # Check for extra fields in nested model
+    if extra == :forbid
+        allowed = Set(keys(nested_spec.fields))
+        for k in keys(nested_input)
+            if !(k in allowed)
+                full_path = vcat(path_prefix, [field_name, k])
+                push!(nested_errors, FieldError(full_path, :extra, "extra field", nested_input[k], false))
+            end
+        end
+    end
+
+    nested_values = Dict{Symbol,Any}()
+    current_path = vcat(path_prefix, [field_name])
+
+    # Validate each field of the nested model
+    for (nested_name, nested_fs) in nested_spec.fields
+        nested_provided = haskey(nested_input, nested_name)
+
+        if !nested_provided
+            if nested_fs.has_default
+                v = nested_fs.default_expr
+                nested_values[nested_name] = v
+                apply_rules!(nested_errors, nested_fs, v, RuleCtx(false, true, nested_fs.is_optional), current_path)
+            else
+                if nested_fs.is_optional
+                    nested_values[nested_name] = nothing
+                else
+                    push!(nested_errors, FieldError(vcat(current_path, [nested_name]), :missing, "missing", nothing, nested_fs.secret))
+                end
+            end
+            continue
+        end
+
+        nested_rawv = nested_input[nested_name]
+
+        if nested_fs.is_optional && nested_rawv === nothing
+            nested_values[nested_name] = nothing
+            apply_rules!(nested_errors, nested_fs, nothing, RuleCtx(true, false, true), current_path)
+            continue
+        end
+
+        # Check if this field is also a nested model
+        # Extract actual type if it's optional (Union{Nothing,T})
+        nested_actual_type = nested_fs.typ
+        if nested_fs.is_optional
+            types = Base.uniontypes(nested_fs.typ)
+            non_nothing = filter(t -> t !== Nothing, types)
+            if length(non_nothing) == 1
+                nested_actual_type = non_nothing[1]
+            end
+        end
+
+        if _is_registered_model(nested_actual_type)
+            nested_instance = _validate_nested!(nested_errors, nested_name, nested_actual_type, nested_rawv, current_path, strict, extra)
+            if nested_instance !== nothing
+                nested_values[nested_name] = nested_instance
+                apply_rules!(nested_errors, nested_fs, nested_instance, RuleCtx(true, false, nested_fs.is_optional), current_path)
+            end
+        else
+            # Regular field validation
+            v, err = coerce(nested_fs.typ, nested_rawv; strict=strict)
+            if err !== nothing
+                masked_value = mask_if_secret(nested_rawv, nested_fs.secret)
+                push!(nested_errors, FieldError(vcat(current_path, [nested_name]), :type, err, masked_value, nested_fs.secret))
+                continue
+            end
+
+            nested_values[nested_name] = v
+            apply_rules!(nested_errors, nested_fs, v, RuleCtx(true, false, nested_fs.is_optional), current_path)
+        end
+    end
+
+    # Add nested errors to the main error list
+    append!(errors, nested_errors)
+
+    # If there were any errors, return nothing
+    if !isempty(nested_errors)
+        return nothing
+    end
+
+    # Fill in optional missing values
+    for n in fieldnames(field_type)
+        if !haskey(nested_values, n)
+            nested_values[n] = nothing
+        end
+    end
+
+    # Construct the nested instance
+    return construct(field_type, nested_values)
+end
+
+"""
+    apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::RuleCtx, path_prefix::Vector{Symbol}=Symbol[])
 
 Apply all validation rules for a field and collect any errors.
 
@@ -111,6 +253,7 @@ Apply all validation rules for a field and collect any errors.
 - `fs::FieldSpec`: Field specification containing rules
 - `value`: The value to validate
 - `ctx::RuleCtx`: Validation context (provided, defaulted, optional)
+- `path_prefix::Vector{Symbol}`: Path prefix for nested fields (default: empty)
 
 # Behavior
 
@@ -123,7 +266,7 @@ Apply all validation rules for a field and collect any errors.
 # Side Effects
 Mutates the `errors` vector by appending validation failures.
 """
-function apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::RuleCtx)
+function apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::RuleCtx, path_prefix::Vector{Symbol}=Symbol[])
     for r in fs.rules
         # optional & nothing のときは present/notnothing 以外スキップ
         if ctx.optional && value === nothing
@@ -142,7 +285,8 @@ function apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::Rul
         if !ok
             msg = something(r.msg, default_msg(r))
             masked_value = mask_if_secret(value, fs.secret)
-            push!(errors, FieldError([fs.name], r.code, msg, masked_value, fs.secret))
+            full_path = vcat(path_prefix, [fs.name])
+            push!(errors, FieldError(full_path, r.code, msg, masked_value, fs.secret))
         end
     end
 end
@@ -266,6 +410,26 @@ function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:forbid
         if fs.is_optional && rawv === nothing
             values[name] = nothing
             apply_rules!(errors, fs, nothing, RuleCtx(true, false, true))
+            continue
+        end
+
+        # Check if this field is a nested model
+        # Extract actual type if it's optional (Union{Nothing,T})
+        actual_type = fs.typ
+        if fs.is_optional
+            types = Base.uniontypes(fs.typ)
+            non_nothing = filter(t -> t !== Nothing, types)
+            if length(non_nothing) == 1
+                actual_type = non_nothing[1]
+            end
+        end
+
+        if _is_registered_model(actual_type)
+            nested_instance = _validate_nested!(errors, name, actual_type, rawv, Symbol[], strict, extra)
+            if nested_instance !== nothing
+                values[name] = nested_instance
+                apply_rules!(errors, fs, nested_instance, RuleCtx(true, false, fs.is_optional))
+            end
             continue
         end
 
