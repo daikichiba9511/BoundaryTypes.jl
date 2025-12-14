@@ -11,4 +11,5 @@ using BoundaryTypes
     include("update_tests.jl")
     include("introspection_tests.jl")
     include("nested_tests.jl")
+    include("extra_field_tests.jl")
 end

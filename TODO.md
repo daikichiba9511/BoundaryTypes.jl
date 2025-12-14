@@ -16,14 +16,6 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 - [ ] Add `coerce=true` option to `@model` or `@rules`
 - [ ] Support common conversions: String → Int, Float, Bool
 
-### Extra Field Handling Configuration
-- [ ] User-facing API for `extra` configuration in `@model`
-  - Example: `@model(extra=:allow) struct User ... end`
-- [ ] Support `:forbid` (reject extra fields, default)
-- [ ] Support `:ignore` (silently ignore extra fields)
-- [ ] Support `:allow` (store extra fields in a separate dict)
-- [ ] Document current internal implementation
-
 ### Error Message Customization
 - [ ] Custom error messages per rule
   - Example: `field(:age, ge(0), msg="年齢は0以上である必要があります")`
@@ -115,6 +107,13 @@ This document tracks planned features and improvements for BoundaryTypes.jl.
 - ✅ Optional field handling (`Union{Nothing,T}`)
 - ✅ Secret field masking in error messages
 - ✅ Nested struct validation with automatic recursion
+- ✅ Extra field handling configuration
+  - ✅ `@model extra=:forbid` (reject extra fields, default)
+  - ✅ `@model extra=:ignore` (silently ignore extra fields)
+  - ✅ `@model extra=:allow` (store extra fields in `_extra::Dict{Symbol,Any}`)
+  - ✅ Works with `@validated_model` as well
+  - ✅ `model_dump` automatically merges `_extra` fields back into output
+  - ✅ Nested models support with proper propagation of extra modes
 
 ---
 

@@ -1,5 +1,6 @@
 """
     @model struct TypeName ... end
+    @model(extra=:forbid) struct TypeName ... end
 
 Register a struct as a validated model and automatically infer field specifications
 from the struct definition.
@@ -15,6 +16,14 @@ The macro analyzes each field declaration and infers its properties:
 | `x::Union{Nothing,T}`            | Optional field                    |
 | `x::Union{Nothing,T} = nothing`  | Optional field with default       |
 
+# Extra Field Handling
+
+The `extra` parameter controls how extra fields (not defined in the model) are handled:
+
+- `extra=:forbid` (default): Reject input with extra fields (ValidationError)
+- `extra=:ignore`: Silently ignore extra fields
+- `extra=:allow`: Allow extra fields (reserved for future use)
+
 # Usage
 
 ```julia
@@ -23,6 +32,12 @@ The macro analyzes each field declaration and infers its properties:
     password::String                       # Required
     age::Int = 0                          # Default value
     nickname::Union{Nothing,String} = nothing  # Optional with default
+end
+
+# With custom extra field handling
+@model(extra=:ignore) struct FlexibleUser
+    email::String
+    password::String
 end
 ```
 
@@ -37,7 +52,32 @@ After registration, use `model_validate(User, raw_input)` to validate and constr
 
 See also: [`@rules`](@ref), [`model_validate`](@ref), [`FieldSpec`](@ref)
 """
-macro model(def)
+macro model(args...)
+    # Parse arguments: @model(extra=:ignore) struct ... or @model struct ...
+    extra_mode = :forbid
+    def = nothing
+
+    if length(args) == 1
+        # @model struct ...
+        def = args[1]
+    elseif length(args) == 2
+        # @model(extra=:ignore) struct ...
+        # First arg should be the keyword argument
+        kw = args[1]
+        if kw isa Expr && kw.head == :(=) && kw.args[1] == :extra
+            extra_mode = kw.args[2]
+            if !(extra_mode isa QuoteNode && extra_mode.value in (:forbid, :ignore, :allow))
+                error("extra parameter must be :forbid, :ignore, or :allow")
+            end
+            extra_mode = extra_mode.value
+        else
+            error("Invalid argument to @model. Expected: @model(extra=:symbol) struct ...")
+        end
+        def = args[2]
+    else
+        error("Invalid number of arguments to @model")
+    end
+
     struct_def = def
     if def isa Expr && def.head == :macrocall
         struct_def = def.args[end]
@@ -62,6 +102,9 @@ macro model(def)
             fname = lhs.args[1]::Symbol
             ftyp  = lhs.args[2]
 
+            # Check if user tries to define _extra field
+            fname == :_extra && error("_extra is a reserved field name for :allow mode")
+
             push!(fs_pairs, (fname,
                 :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, true, $rhs, BoundaryTypes._is_optional_type($ftyp), false, BoundaryTypes.Rule[]))
             ))
@@ -70,14 +113,38 @@ macro model(def)
             fname = st.args[1]::Symbol
             ftyp  = st.args[2]
 
+            # Check if user tries to define _extra field
+            fname == :_extra && error("_extra is a reserved field name for :allow mode")
+
             push!(fs_pairs, (fname,
                 :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, false, nothing, BoundaryTypes._is_optional_type($ftyp), false, BoundaryTypes.Rule[]))
             ))
         end
     end
 
+    # If extra_mode is :allow, add _extra field to the struct definition
+    final_def = def
+    if extra_mode == :allow
+        # Create new struct with _extra field added
+        new_stmts = copy(stmts)
+        # Add _extra field at the end
+        push!(new_stmts, :($(Expr(:(::), :_extra, :(Dict{Symbol,Any})))))
+        new_body = Expr(:block, new_stmts...)
+
+        if has_bool
+            final_def = Expr(:struct, struct_def.args[1], struct_def.args[2], new_body)
+        else
+            final_def = Expr(:struct, struct_def.args[1], new_body)
+        end
+
+        # Add _extra to field specs (it's not validated, just stored)
+        push!(fs_pairs, (:_extra,
+            :(BoundaryTypes.FieldSpec(:_extra, Dict{Symbol,Any}, true, Dict{Symbol,Any}(), false, false, BoundaryTypes.Rule[]))
+        ))
+    end
+
     quote
-        $def
+        $final_def
         begin
             local T = getfield(@__MODULE__, $(QuoteNode(Tname_sym)))
 
@@ -112,7 +179,7 @@ macro model(def)
                 end
             end
 
-            BoundaryTypes._MODEL_SPECS[T] = BoundaryTypes.ModelSpec(_fields, :forbid)
+            BoundaryTypes._MODEL_SPECS[T] = BoundaryTypes.ModelSpec(_fields, $(QuoteNode(extra_mode)))
         end
     end |> esc
 end
@@ -321,6 +388,7 @@ end
 
 """
     @validated_model struct TypeName ... end
+    @validated_model(extra=:forbid) struct TypeName ... end
 
 Register a struct as a validated model and automatically generate a keyword constructor
 that performs validation via `model_validate`.
@@ -343,6 +411,14 @@ Same as `@model`:
 | `x::T = v`                       | Field with default value          |
 | `x::Union{Nothing,T}`            | Optional field                    |
 | `x::Union{Nothing,T} = nothing`  | Optional field with default       |
+
+# Extra Field Handling
+
+Same as `@model`, the `extra` parameter controls how extra fields are handled:
+
+- `extra=:forbid` (default): Reject input with extra fields (ValidationError)
+- `extra=:ignore`: Silently ignore extra fields
+- `extra=:allow`: Allow extra fields (reserved for future use)
 
 # Generated Constructor
 
@@ -389,7 +465,31 @@ end
 
 See also: [`@model`](@ref), [`@rules`](@ref), [`model_validate`](@ref)
 """
-macro validated_model(def)
+macro validated_model(args...)
+    # Parse arguments: @validated_model(extra=:ignore) struct ... or @validated_model struct ...
+    extra_mode = :forbid
+    def = nothing
+
+    if length(args) == 1
+        # @validated_model struct ...
+        def = args[1]
+    elseif length(args) == 2
+        # @validated_model(extra=:ignore) struct ...
+        kw = args[1]
+        if kw isa Expr && kw.head == :(=) && kw.args[1] == :extra
+            extra_mode = kw.args[2]
+            if !(extra_mode isa QuoteNode && extra_mode.value in (:forbid, :ignore, :allow))
+                error("extra parameter must be :forbid, :ignore, or :allow")
+            end
+            extra_mode = extra_mode.value
+        else
+            error("Invalid argument to @validated_model. Expected: @validated_model(extra=:symbol) struct ...")
+        end
+        def = args[2]
+    else
+        error("Invalid number of arguments to @validated_model")
+    end
+
     struct_def = def
     if def isa Expr && def.head == :macrocall
         struct_def = def.args[end]
@@ -415,6 +515,9 @@ macro validated_model(def)
             fname = lhs.args[1]::Symbol
             ftyp  = lhs.args[2]
 
+            # Check if user tries to define _extra field
+            fname == :_extra && error("_extra is a reserved field name for :allow mode")
+
             # Store field spec with default value
             # Note: _is_optional_type must be called at runtime, not at macro expansion time
             push!(fs_pairs, (fname,
@@ -428,6 +531,9 @@ macro validated_model(def)
             fname = st.args[1]::Symbol
             ftyp  = st.args[2]
 
+            # Check if user tries to define _extra field
+            fname == :_extra && error("_extra is a reserved field name for :allow mode")
+
             push!(fs_pairs, (fname,
                 :(BoundaryTypes.FieldSpec($(QuoteNode(fname)), $ftyp, false, nothing, BoundaryTypes._is_optional_type($ftyp), false, BoundaryTypes.Rule[]))
             ))
@@ -438,6 +544,17 @@ macro validated_model(def)
             # Keep other statements (e.g., inner constructors)
             push!(new_stmts, st)
         end
+    end
+
+    # If extra_mode is :allow, add _extra field to the struct definition
+    if extra_mode == :allow
+        # Add _extra field at the end
+        push!(new_stmts, :($(Expr(:(::), :_extra, :(Dict{Symbol,Any})))))
+
+        # Add _extra to field specs (it's not validated, just stored)
+        push!(fs_pairs, (:_extra,
+            :(BoundaryTypes.FieldSpec(:_extra, Dict{Symbol,Any}, true, Dict{Symbol,Any}(), false, false, BoundaryTypes.Rule[]))
+        ))
     end
 
     # Create new struct definition without default values
@@ -484,7 +601,7 @@ macro validated_model(def)
                 end
             end
 
-            BoundaryTypes._MODEL_SPECS[T] = BoundaryTypes.ModelSpec(_fields, :forbid)
+            BoundaryTypes._MODEL_SPECS[T] = BoundaryTypes.ModelSpec(_fields, $(QuoteNode(extra_mode)))
         end
 
         # Generate keyword constructor that validates

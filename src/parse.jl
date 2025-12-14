@@ -152,8 +152,14 @@ function _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field
     nested_spec = _MODEL_SPECS[field_type]
     nested_errors = FieldError[]
 
+    # Use the nested model's extra mode if parent uses :default
+    actual_extra = (extra == :default) ? nested_spec.extra : extra
+
+    # For :allow mode, collect extra fields
+    extra_fields = Dict{Symbol,Any}()
+
     # Check for extra fields in nested model
-    if extra == :forbid
+    if actual_extra == :forbid
         allowed = Set(keys(nested_spec.fields))
         for k in keys(nested_input)
             if !(k in allowed)
@@ -161,6 +167,17 @@ function _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field
                 push!(nested_errors, FieldError(full_path, :extra, "extra field", nested_input[k], false))
             end
         end
+    elseif actual_extra == :allow
+        # Collect extra fields into a separate dict
+        allowed = Set(keys(nested_spec.fields))
+        # Remove _extra from allowed set since it's added automatically
+        delete!(allowed, :_extra)
+        for k in keys(nested_input)
+            if !(k in allowed)
+                extra_fields[k] = nested_input[k]
+            end
+        end
+    # :ignore mode - silently skip extra fields (no action needed)
     end
 
     nested_values = Dict{Symbol,Any}()
@@ -205,7 +222,7 @@ function _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field
         end
 
         if _is_registered_model(nested_actual_type)
-            nested_instance = _validate_nested!(nested_errors, nested_name, nested_actual_type, nested_rawv, current_path, strict, extra)
+            nested_instance = _validate_nested!(nested_errors, nested_name, nested_actual_type, nested_rawv, current_path, strict, actual_extra)
             if nested_instance !== nothing
                 nested_values[nested_name] = nested_instance
                 apply_rules!(nested_errors, nested_fs, nested_instance, RuleCtx(true, false, nested_fs.is_optional), current_path)
@@ -230,6 +247,11 @@ function _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field
     # If there were any errors, return nothing
     if !isempty(nested_errors)
         return nothing
+    end
+
+    # For :allow mode, store extra fields in _extra
+    if actual_extra == :allow && haskey(nested_spec.fields, :_extra)
+        nested_values[:_extra] = extra_fields
     end
 
     # Fill in optional missing values
@@ -368,19 +390,35 @@ model_validate(User, Dict(:email => "invalid"))
 
 See also: [`try_model_validate`](@ref), [`@model`](@ref), [`@rules`](@ref)
 """
-function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:forbid) where T
+function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:default) where T
     input = normalize(raw)
     spec = get(_MODEL_SPECS, T, nothing)
     spec === nothing && throw(ArgumentError("No model spec registered for $(T). Use @model."))
 
+    # Use the model's extra mode if not explicitly provided
+    actual_extra = (extra == :default) ? spec.extra : extra
+
     errors = FieldError[]
-    if extra == :forbid
+    extra_fields = Dict{Symbol,Any}()  # For :allow mode
+
+    if actual_extra == :forbid
         allowed = Set(keys(spec.fields))
         for k in keys(input)
             if !(k in allowed)
                 push!(errors, FieldError([k], :extra, "extra field", input[k], false))
             end
         end
+    elseif actual_extra == :allow
+        # Collect extra fields into a separate dict
+        allowed = Set(keys(spec.fields))
+        # Remove _extra from allowed set since it's added automatically
+        delete!(allowed, :_extra)
+        for k in keys(input)
+            if !(k in allowed)
+                extra_fields[k] = input[k]
+            end
+        end
+    # :ignore mode - silently skip extra fields (no action needed)
     end
 
     values = Dict{Symbol,Any}()
@@ -425,7 +463,7 @@ function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:forbid
         end
 
         if _is_registered_model(actual_type)
-            nested_instance = _validate_nested!(errors, name, actual_type, rawv, Symbol[], strict, extra)
+            nested_instance = _validate_nested!(errors, name, actual_type, rawv, Symbol[], strict, actual_extra)
             if nested_instance !== nothing
                 values[name] = nested_instance
                 apply_rules!(errors, fs, nested_instance, RuleCtx(true, false, fs.is_optional))
@@ -445,6 +483,11 @@ function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:forbid
     end
 
     isempty(errors) || throw(ValidationError(errors))
+
+    # For :allow mode, store extra fields in _extra
+    if actual_extra == :allow && haskey(spec.fields, :_extra)
+        values[:_extra] = extra_fields
+    end
 
     # optional missing を埋める（construct 用）
     for n in fieldnames(T)
@@ -1294,14 +1337,38 @@ See also: [`model_dump_json`](@ref), [`model_validate`](@ref), [`model_copy`](@r
 function model_dump(instance::T; keys::Symbol=:symbol) where T
     if keys == :symbol
         result = Dict{Symbol,Any}()
+        _extra_dict = nothing
         for fname in fieldnames(T)
-            result[fname] = getfield(instance, fname)
+            value = getfield(instance, fname)
+            # Skip _extra field, we'll merge it later
+            if fname == :_extra
+                _extra_dict = value
+            else
+                result[fname] = value
+            end
+        end
+        # Merge _extra fields back into result
+        if _extra_dict !== nothing && _extra_dict isa Dict
+            merge!(result, _extra_dict)
         end
         return result
     elseif keys == :string
         result = Dict{String,Any}()
+        _extra_dict = nothing
         for fname in fieldnames(T)
-            result[String(fname)] = getfield(instance, fname)
+            value = getfield(instance, fname)
+            # Skip _extra field, we'll merge it later
+            if fname == :_extra
+                _extra_dict = value
+            else
+                result[String(fname)] = value
+            end
+        end
+        # Merge _extra fields back into result (convert keys to strings)
+        if _extra_dict !== nothing && _extra_dict isa Dict
+            for (k, v) in _extra_dict
+                result[String(k)] = v
+            end
         end
         return result
     else
