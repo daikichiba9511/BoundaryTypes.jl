@@ -87,7 +87,7 @@ println("@model requires explicit model_validate()")
 println("=" ^ 80)
 println()
 
-@model struct Product
+@model Base.@kwdef struct Product
     name::String
     price::Float64
     quantity::Int = 0
