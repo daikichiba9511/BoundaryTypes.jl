@@ -3,6 +3,7 @@
 *.jl.cov
 *.jl.mem
 /Manifest.toml
+.vscode
 
 # Documenter.jl build output
 docs/build/
