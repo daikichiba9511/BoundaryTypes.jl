@@ -70,38 +70,66 @@ BoundaryTypes.jl は**生の入力とドメイン型の間**に位置し、以�
 
 ## クイック例
 
+### シンプルな使い方（推奨）
+
+最も簡単な始め方は`@validated_model`を使用することです。構築時に自動的にバリデーションが行われます：
+
 ```julia
 using BoundaryTypes
 
-@model struct Signup
+@validated_model struct Signup
     email::String
     password::String
     age::Int = 0
 end
 
 @rules Signup begin
-    field(:email,
-          regex(r"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-
-    field(:password,
-          minlen(12),
-          regex(r"[A-Z]"),
-          regex(r"[0-9]"),
-          secret())
-
-    field(:age,
-          ge(0), le(150))
+    field(:email, email())
+    field(:password, minlen(12), regex(r"[A-Z]"), regex(r"[0-9]"), secret())
+    field(:age, ge(0), le(150))
 end
 
-Signup(email="foo@example.com", password="short")
+# コンストラクタが自動的にバリデーション - IDEの補完が効きます！
+user = Signup(email="user@example.com", password="SecurePass123", age=25)
+
+# バリデーションエラーは即座にスローされます
+Signup(email="invalid", password="short")
 ```
 
 出力:
 
 ```
-ValidationError with 2 error(s):
-  - password [minlen]: string too short (got=***)
+ValidationError with 3 error(s):
+  - email [email]: invalid email format (got="invalid")
+  - password [minlen]: too short (got=***)
   - password [regex]: does not match required pattern (got=***)
+```
+
+### 高度な使い方
+
+バリデーションのタイミングをより細かく制御したい場合は、`@model`と明示的な`model_validate`を使用します：
+
+```julia
+@model struct Config
+    host::String
+    port::Int
+end
+
+@rules Config begin
+    field(:host, minlen(1))
+    field(:port, ge(1), le(65535))
+end
+
+# 明示的なバリデーション呼び出し
+config = model_validate(Config, Dict(:host => "localhost", :port => 8080))
+
+# または安全な（スロー無し）バージョンを使用
+ok, result = try_model_validate(Config, raw_data)
+if ok
+    # result::Config
+else
+    # result::ValidationError
+end
 ```
 
 ---
@@ -318,24 +346,7 @@ ok, result = try_model_validate_json(T, json_string)
 
 ## コンストラクタ統合
 
-### 手動統合（推奨）
-
-バリデーションをデフォルトの体験にするには：
-
-```julia
-User(; kwargs...) = model_validate(User, kwargs)
-```
-
-これにより以下が可能になります：
-
-```julia
-User(name="Alice", age=-1)
-```
-
-…自動的にバリデーションを通過し、
-外部入力に生のコンストラクタを公開しません。
-
-### `@validated_model`による自動統合
+### `@validated_model`による自動統合（推奨）
 
 `@validated_model`マクロは、バリデーション済みキーワードコンストラクタを自動的に作成します：
 
@@ -348,14 +359,44 @@ end
 
 @rules Account begin
     field(:username, minlen(3))
-    field(:email, regex(r"@"))
+    field(:email, email())
     field(:balance, ge(0.0))
 end
 
-# コンストラクタが自動的にバリデーション
+# コンストラクタが自動的にバリデーション - IDEの補完が効きます！
 acc = Account(username="alice", email="alice@example.com")
 # 無効な場合はValidationErrorをスロー
 ```
+
+**利点：**
+- ✅ IDEの補完が効く（適切な型推論）
+- ✅ Pydanticライクなコンストラクタ体験
+- ✅ `model_validate`を明示的に呼ぶ必要がない
+
+### 手動統合（高度）
+
+より細かい制御が必要な場合は、手動でバリデーション済みコンストラクタを追加できます：
+
+```julia
+@model struct User
+    name::String
+    age::Int
+end
+
+# 独自のバリデーション済みコンストラクタを追加
+User(; kwargs...) = model_validate(User, kwargs)
+```
+
+これにより以下が可能になります：
+
+```julia
+User(name="Alice", age=-1)  # 自動的にバリデーション
+```
+
+**以下の場合に使用：**
+- カスタムコンストラクタロジックが必要
+- `@model`とバリデーションを分離したい
+- 既存のコードを段階的に移行している
 
 ---
 
@@ -611,7 +652,8 @@ end
 
 実行可能な包括的なサンプルが[`examples/`](examples/)ディレクトリに用意されています：
 
-- **01_basic_usage.jl** - 基本概念とバリデーションの基礎
+- **00_validated_model.jl** - `@validated_model`を使ったクイックスタート（初心者向け推奨）
+- **01_basic_usage.jl** - `@model`と`model_validate`を使った基本概念
 - **02_advanced_rules.jl** - 高度なバリデーションルールとカスタムバリデータ
 - **03_nested_models.jl** - ネストした構造体のバリデーション
 - **04_collections.jl** - 配列、ベクトル、セットのバリデーション
@@ -620,7 +662,7 @@ end
 
 サンプルの実行方法：
 ```bash
-julia --project=. examples/01_basic_usage.jl
+julia --project=. examples/00_validated_model.jl
 ```
 
 これらのサンプルはVSCodeのJulia拡張機能と連携して動作するよう設計されており、ホバードキュメント、オートコンプリート、定義へのジャンプ機能が利用できます。

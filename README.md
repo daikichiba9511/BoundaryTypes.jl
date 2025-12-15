@@ -73,38 +73,66 @@ BoundaryTypes.jl sits **between raw input and domain types**, providing:
 
 ## Quick Example
 
+### Simple Usage (Recommended)
+
+The easiest way to get started is with `@validated_model`, which automatically validates on construction:
+
 ```julia
 using BoundaryTypes
 
-@model struct Signup
+@validated_model struct Signup
     email::String
     password::String
     age::Int = 0
 end
 
 @rules Signup begin
-    field(:email,
-          regex(r"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
-
-    field(:password,
-          minlen(12),
-          regex(r"[A-Z]"),
-          regex(r"[0-9]"),
-          secret())
-
-    field(:age,
-          ge(0), le(150))
+    field(:email, email())
+    field(:password, minlen(12), regex(r"[A-Z]"), regex(r"[0-9]"), secret())
+    field(:age, ge(0), le(150))
 end
 
-Signup(email="foo@example.com", password="short")
+# Constructor automatically validates - IDE autocomplete works!
+user = Signup(email="user@example.com", password="SecurePass123", age=25)
+
+# Validation errors are thrown immediately
+Signup(email="invalid", password="short")
 ```
 
 Output:
 
 ```
-ValidationError with 2 error(s):
-  - password [minlen]: string too short (got=***)
+ValidationError with 3 error(s):
+  - email [email]: invalid email format (got="invalid")
+  - password [minlen]: too short (got=***)
   - password [regex]: does not match required pattern (got=***)
+```
+
+### Advanced Usage
+
+For more control over validation timing, use `@model` with explicit `model_validate`:
+
+```julia
+@model struct Config
+    host::String
+    port::Int
+end
+
+@rules Config begin
+    field(:host, minlen(1))
+    field(:port, ge(1), le(65535))
+end
+
+# Explicit validation call
+config = model_validate(Config, Dict(:host => "localhost", :port => 8080))
+
+# Or use safe (non-throwing) version
+ok, result = try_model_validate(Config, raw_data)
+if ok
+    # result::Config
+else
+    # result::ValidationError
+end
 ```
 
 ---
@@ -321,24 +349,7 @@ ok, result = try_model_validate_json(T, json_string)
 
 ## Constructor Integration
 
-### Manual Integration (Recommended)
-
-To make validation the default experience:
-
-```julia
-User(; kwargs...) = model_validate(User, kwargs)
-```
-
-This allows:
-
-```julia
-User(name="Alice", age=-1)
-```
-
-…to automatically go through validation,
-without exposing raw constructors to external input.
-
-### Automatic Integration with `@validated_model`
+### Automatic Integration with `@validated_model` (Recommended)
 
 The `@validated_model` macro automatically creates a validated keyword constructor:
 
@@ -351,14 +362,44 @@ end
 
 @rules Account begin
     field(:username, minlen(3))
-    field(:email, regex(r"@"))
+    field(:email, email())
     field(:balance, ge(0.0))
 end
 
-# Constructor automatically validates
+# Constructor automatically validates - IDE autocomplete works!
 acc = Account(username="alice", email="alice@example.com")
 # Throws ValidationError if invalid
 ```
+
+**Benefits:**
+- ✅ IDE autocomplete works (proper type inference)
+- ✅ Pydantic-like constructor experience
+- ✅ No need to call `model_validate` explicitly
+
+### Manual Integration (Advanced)
+
+For more control, you can manually add a validated constructor:
+
+```julia
+@model struct User
+    name::String
+    age::Int
+end
+
+# Add your own validated constructor
+User(; kwargs...) = model_validate(User, kwargs)
+```
+
+This allows:
+
+```julia
+User(name="Alice", age=-1)  # Validates automatically
+```
+
+**Use this when:**
+- You need custom constructor logic
+- You want to keep `@model` and validation separate
+- You're migrating existing code gradually
 
 ---
 
@@ -613,7 +654,8 @@ It is a **boundary validation library**, by design.
 
 Comprehensive, runnable examples are available in the [`examples/`](examples/) directory:
 
-- **01_basic_usage.jl** - Fundamental concepts and validation basics
+- **00_validated_model.jl** - Quick start with `@validated_model` (recommended for beginners)
+- **01_basic_usage.jl** - Fundamental concepts with `@model` and `model_validate`
 - **02_advanced_rules.jl** - Advanced validation rules and custom validators
 - **03_nested_models.jl** - Nested struct validation
 - **04_collections.jl** - Array, vector, and set validation
@@ -622,7 +664,7 @@ Comprehensive, runnable examples are available in the [`examples/`](examples/) d
 
 Run any example with:
 ```bash
-julia --project=. examples/01_basic_usage.jl
+julia --project=. examples/00_validated_model.jl
 ```
 
 The examples are designed to work well with VSCode's Julia extension, providing hover documentation, autocomplete, and go-to-definition features.
