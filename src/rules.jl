@@ -30,7 +30,7 @@ end
 
 See also: [`@rules`](@ref)
 """
-secret() = SecretTag()
+secret()::SecretTag = SecretTag()
 
 """
     present(; msg=nothing)
@@ -59,7 +59,7 @@ model_validate(Config, Dict(:debug => nothing))  # OK
 
 See also: [`notnothing`](@ref)
 """
-present(; msg=nothing)    = Rule(:present, (v, ctx)->ctx.provided, msg)
+present(; msg::Union{Nothing,String}=nothing)::Rule = Rule(:present, (v, ctx)->ctx.provided, msg)
 
 """
     notnothing(; msg=nothing)
@@ -89,7 +89,7 @@ model_validate(User, Dict(:nickname => "Alice")) # OK
 
 See also: [`present`](@ref)
 """
-notnothing(; msg=nothing) = Rule(:notnothing, (v, ctx)->(v !== nothing), msg)
+notnothing(; msg::Union{Nothing,String}=nothing)::Rule = Rule(:notnothing, (v, ctx)->(v !== nothing), msg)
 
 """
     ge(n; msg=nothing)
@@ -115,7 +115,7 @@ end
 
 See also: [`le`](@ref)
 """
-ge(n; msg=nothing) = Rule(:ge, (v, ctx)->(v isa Number && v >= n), msg)
+ge(n::Number; msg::Union{Nothing,String}=nothing)::Rule = Rule(:ge, (v, ctx)->(v isa Number && v >= n), msg)
 
 """
     le(n; msg=nothing)
@@ -141,7 +141,7 @@ end
 
 See also: [`ge`](@ref)
 """
-le(n; msg=nothing) = Rule(:le, (v, ctx)->(v isa Number && v <= n), msg)
+le(n::Number; msg::Union{Nothing,String}=nothing)::Rule = Rule(:le, (v, ctx)->(v isa Number && v <= n), msg)
 
 """
     gt(n; msg=nothing)
@@ -167,7 +167,7 @@ end
 
 See also: [`ge`](@ref), [`lt`](@ref), [`between`](@ref)
 """
-gt(n; msg=nothing) = Rule(:gt, (v, ctx)->(v isa Number && v > n), msg)
+gt(n::Number; msg::Union{Nothing,String}=nothing)::Rule = Rule(:gt, (v, ctx)->(v isa Number && v > n), msg)
 
 """
     lt(n; msg=nothing)
@@ -193,7 +193,7 @@ end
 
 See also: [`le`](@ref), [`gt`](@ref), [`between`](@ref)
 """
-lt(n; msg=nothing) = Rule(:lt, (v, ctx)->(v isa Number && v < n), msg)
+lt(n::Number; msg::Union{Nothing,String}=nothing)::Rule = Rule(:lt, (v, ctx)->(v isa Number && v < n), msg)
 
 """
     between(min, max; msg=nothing)
@@ -220,7 +220,7 @@ end
 
 See also: [`ge`](@ref), [`le`](@ref), [`gt`](@ref), [`lt`](@ref)
 """
-function between(min, max; msg=nothing)
+function between(min::Number, max::Number; msg::Union{Nothing,String}=nothing)::Rule
     return Rule(:between, (v, ctx) -> (v isa Number && min <= v <= max), msg)
 end
 
@@ -255,7 +255,7 @@ model_validate(Inventory, Dict(:quantity => 103, :batch_size => 25))
 
 See also: [`custom`](@ref)
 """
-function multiple_of(n; msg=nothing)
+function multiple_of(n::Number; msg::Union{Nothing,String}=nothing)::Rule
     n > 0 || throw(ArgumentError("multiple_of divisor must be positive"))
     return Rule(:multiple_of, (v, ctx) -> (v isa Number && v % n == 0), msg)
 end
@@ -288,7 +288,7 @@ end
 
 See also: [`regex`](@ref), [`maxlen`](@ref)
 """
-function minlen(n; msg=nothing)
+function minlen(n::Integer; msg::Union{Nothing,String}=nothing)::Rule
     return Rule(:minlen, (v, ctx) -> begin
         if v isa AbstractString
             return length(v) >= n
@@ -324,7 +324,7 @@ end
 
 See also: [`minlen`](@ref), [`custom`](@ref)
 """
-regex(re::Regex; msg=nothing) = Rule(:regex, (v, ctx)->(v isa AbstractString && occursin(re, v)), msg)
+regex(re::Regex; msg::Union{Nothing,String}=nothing)::Rule = Rule(:regex, (v, ctx)->(v isa AbstractString && occursin(re, v)), msg)
 
 """
     custom(f; code::Symbol=:custom, msg=nothing)
@@ -355,7 +355,7 @@ create a `Rule` directly.
 
 See also: [`Rule`](@ref)
 """
-custom(f; code::Symbol=:custom, msg=nothing) = Rule(code, (v, ctx)->Bool(f(v)), msg)
+custom(f::Function; code::Symbol=:custom, msg::Union{Nothing,String}=nothing)::Rule = Rule(code, (v, ctx)->Bool(f(v)), msg)
 
 """
     EachTag
@@ -410,7 +410,7 @@ model_validate(TaggedPost, Dict(
 
 See also: [`minlen`](@ref), [`maxlen`](@ref)
 """
-function each(rule; msg=nothing)
+function each(rule::Rule; msg::Union{Nothing,String}=nothing)::EachTag
     # Return an EachTag wrapper instead of a Rule
     # This allows special handling in apply_rules!
     return EachTag(rule)
@@ -442,7 +442,7 @@ end
 
 See also: [`minlen`](@ref)
 """
-function maxlen(n; msg=nothing)
+function maxlen(n::Integer; msg::Union{Nothing,String}=nothing)::Rule
     return Rule(:maxlen, (v, ctx) -> begin
         if v isa AbstractString
             return length(v) <= n
@@ -485,7 +485,7 @@ model_validate(User, Dict(:email => "invalid-email"))
 
 See also: [`regex`](@ref), [`url`](@ref)
 """
-function email(; msg=nothing)
+function email(; msg::Union{Nothing,String}=nothing)::Rule
     # Simple but reasonable email regex
     # Based on HTML5 email validation pattern
     email_pattern = r"^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
@@ -522,7 +522,7 @@ model_validate(Bookmark, Dict(:url => "not-a-url"))
 
 See also: [`regex`](@ref), [`email`](@ref)
 """
-function url(; msg=nothing)
+function url(; msg::Union{Nothing,String}=nothing)::Rule
     # URL regex pattern supporting http(s) and ftp(s)
     url_pattern = r"^(https?|ftps?)://[^\s/$.?#].[^\s]*$"i
     return Rule(:url, (v, ctx) -> (v isa AbstractString && occursin(url_pattern, v)), msg)
@@ -558,7 +558,7 @@ model_validate(Resource, Dict(:id => "not-a-uuid"))
 
 See also: [`regex`](@ref)
 """
-function uuid(; msg=nothing)
+function uuid(; msg::Union{Nothing,String}=nothing)::Rule
     # UUID regex pattern (both hyphenated and non-hyphenated)
     uuid_pattern = r"^[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$"i
     return Rule(:uuid, (v, ctx) -> (v isa AbstractString && occursin(uuid_pattern, v)), msg)
@@ -595,7 +595,7 @@ model_validate(Task, Dict(:status => "invalid", :priority => "high"))
 
 See also: [`custom`](@ref)
 """
-function choices(values; msg=nothing)
+function choices(values::Any; msg::Union{Nothing,String}=nothing)::Rule
     allowed_set = Set(values)
     return Rule(:choices, (v, ctx) -> (v in allowed_set), msg)
 end
@@ -613,7 +613,7 @@ Return the default error message for a built-in rule code.
 
 This function is used internally when a rule does not provide a custom message.
 """
-function default_msg(r::Rule)
+function default_msg(r::Rule)::String
     r.code === :minlen     && return "too short"
     r.code === :maxlen     && return "too long"
     r.code === :regex      && return "does not match required pattern"
@@ -661,7 +661,7 @@ end
 
 Internal function that returns metadata for all available validation rules.
 """
-function _get_all_rules()
+function _get_all_rules()::Vector{RuleInfo}
     return [
         # String Rules
         RuleInfo(:minlen, :string, "Minimum string/collection length",
@@ -750,7 +750,7 @@ available_rules(category=:numeric)
 
 See also: [`string_rules`](@ref), [`numeric_rules`](@ref), [`collection_rules`](@ref)
 """
-function available_rules(; io::IO=stdout, category::Union{Nothing,Symbol}=nothing)
+function available_rules(; io::IO=stdout, category::Union{Nothing,Symbol}=nothing)::Nothing
     rules = _get_all_rules()
 
     if category !== nothing
@@ -759,7 +759,7 @@ function available_rules(; io::IO=stdout, category::Union{Nothing,Symbol}=nothin
 
     if isempty(rules)
         println(io, "No rules found for category: $category")
-        return
+        return nothing
     end
 
     println(io, "Available Validation Rules")
@@ -798,6 +798,7 @@ function available_rules(; io::IO=stdout, category::Union{Nothing,Symbol}=nothin
     println(io, "=" ^ 80)
     println(io, "For detailed documentation, use: ?", rules[1].name)
     println(io, "Or call: string_rules(), numeric_rules(), collection_rules()")
+    return nothing
 end
 
 """
@@ -824,8 +825,9 @@ string_rules()
 
 See also: [`available_rules`](@ref), [`numeric_rules`](@ref)
 """
-function string_rules(; io::IO=stdout)
+function string_rules(; io::IO=stdout)::Nothing
     available_rules(io=io, category=:string)
+    return nothing
 end
 
 """
@@ -851,8 +853,9 @@ numeric_rules()
 
 See also: [`available_rules`](@ref), [`string_rules`](@ref)
 """
-function numeric_rules(; io::IO=stdout)
+function numeric_rules(; io::IO=stdout)::Nothing
     available_rules(io=io, category=:numeric)
+    return nothing
 end
 
 """
@@ -874,8 +877,9 @@ Note: `minlen` and `maxlen` also work with collections to validate their length.
 
 See also: [`available_rules`](@ref), [`string_rules`](@ref)
 """
-function collection_rules(; io::IO=stdout)
+function collection_rules(; io::IO=stdout)::Nothing
     available_rules(io=io, category=:collection)
+    return nothing
 end
 
 """
@@ -892,7 +896,7 @@ show_rule_examples()
 
 See also: [`available_rules`](@ref)
 """
-function show_rule_examples(; io::IO=stdout)
+function show_rule_examples(; io::IO=stdout)::Nothing
     println(io, "Validation Rule Examples")
     println(io, "=" ^ 80)
     println(io)
@@ -965,4 +969,5 @@ function show_rule_examples(; io::IO=stdout)
     println(io)
 
     println(io, "=" ^ 80)
+    return nothing
 end

@@ -54,7 +54,7 @@ struct ValidationError <: Exception
     errors::Vector{FieldError}
 end
 
-function Base.showerror(io::IO, e::ValidationError)
+function Base.showerror(io::IO, e::ValidationError)::Nothing
     println(io, "ValidationError with $(length(e.errors)) error(s):")
     for err in e.errors
         got = err.secret ? "***" : repr(err.got)
@@ -62,6 +62,7 @@ function Base.showerror(io::IO, e::ValidationError)
                 " [", err.code, "]: ", err.message,
                 " (got=", got, ")")
     end
+    return nothing
 end
 
 """
@@ -180,7 +181,7 @@ _is_optional_type(Union{Nothing,String})  # true
 _is_optional_type(String)                  # false
 ```
 """
-function _is_optional_type(T)
+function _is_optional_type(T::Any)::Bool
     if T isa Union
         return (Nothing in Base.uniontypes(T))
     end

@@ -33,7 +33,7 @@ normalize(Dict("email" => "a@b.com"))  # Dict(:email => "a@b.com")
 normalize((email="a@b.com",))          # Dict(:email => "a@b.com")
 ```
 """
-function normalize(raw)::Dict{Symbol,Any}
+function normalize(raw::Any)::Dict{Symbol,Any}
     if raw isa Dict{Symbol,Any}
         return raw
     elseif raw isa Dict
@@ -82,7 +82,7 @@ coerce(Int, 42)      # (42, nothing)
 coerce(Int, "42")    # (nothing, "expected Int64, got String")
 ```
 """
-function coerce(::Type{T}, x; strict::Bool=true) where T
+function coerce(::Type{T}, x::Any; strict::Bool=true)::Tuple{Union{T,Nothing}, Union{String,Nothing}} where T
     if strict
         return (x isa T) ? (x, nothing) : (nothing, "expected $(T), got $(typeof(x))")
     else
@@ -106,7 +106,7 @@ Mask a value with `"***"` if it is marked as secret.
 This is used internally to prevent sensitive data (passwords, API keys) from
 appearing in error messages.
 """
-function mask_if_secret(value, secret::Bool)
+function mask_if_secret(value::Any, secret::Bool)::Any
     return secret ? "***" : value
 end
 
@@ -121,7 +121,7 @@ Internal helper to check if a type is registered as a model.
 # Returns
 - `Bool`: `true` if `T` is registered in `_MODEL_SPECS`, `false` otherwise
 """
-function _is_registered_model(T)
+function _is_registered_model(T::Type)::Bool
     return haskey(_MODEL_SPECS, T)
 end
 
@@ -145,7 +145,7 @@ Recursively validate a nested model field.
 # Side Effects
 Appends validation errors to the `errors` vector with proper path prefixes.
 """
-function _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field_type::Type, raw_value, path_prefix::Vector{Symbol}, strict::Bool, extra::Symbol)
+function _validate_nested!(errors::Vector{FieldError}, field_name::Symbol, field_type::Type, raw_value::Any, path_prefix::Vector{Symbol}, strict::Bool, extra::Symbol)::Union{Any,Nothing}
     # Normalize the raw value to Dict format
     nested_input = try
         normalize(raw_value)
@@ -298,7 +298,7 @@ Apply all validation rules for a field and collect any errors.
 # Side Effects
 Mutates the `errors` vector by appending validation failures.
 """
-function apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::RuleCtx, path_prefix::Vector{Symbol}=Symbol[])
+function apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value::Any, ctx::RuleCtx, path_prefix::Vector{Symbol}=Symbol[])::Nothing
     for r in fs.rules
         # Handle EachTag specially
         if r isa EachTag
@@ -359,6 +359,7 @@ function apply_rules!(errors::Vector{FieldError}, fs::FieldSpec, value, ctx::Rul
             push!(errors, FieldError(full_path, r.code, msg, masked_value, fs.secret))
         end
     end
+    return nothing
 end
 
 """
@@ -438,7 +439,7 @@ model_validate(User, Dict(:email => "invalid"))
 
 See also: [`try_model_validate`](@ref), [`@model`](@ref), [`@rules`](@ref)
 """
-function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:default)::T where T
+function model_validate(::Type{T}, raw::Any; strict::Bool=true, extra::Symbol=:default)::T where T
     input = normalize(raw)
     spec = get(_MODEL_SPECS, T, nothing)
     spec === nothing && throw(ArgumentError("No model spec registered for $(T). Use @model."))
@@ -580,7 +581,7 @@ explicit error handling without exceptions.
 
 See also: [`model_validate`](@ref), [`ValidationError`](@ref)
 """
-function try_model_validate(::Type{T}, raw; kwargs...) where T
+function try_model_validate(::Type{T}, raw::Any; kwargs...)::Tuple{Bool, Union{T, ValidationError}} where T
     try
         return true, model_validate(T, raw; kwargs...)
     catch e
@@ -659,7 +660,7 @@ end
 
 See also: [`model_validate_json`](@ref), [`try_model_validate`](@ref)
 """
-function try_model_validate_json(::Type{T}, json_str::AbstractString; kwargs...) where T
+function try_model_validate_json(::Type{T}, json_str::AbstractString; kwargs...)::Tuple{Bool, Union{T, ValidationError}} where T
     try
         parsed = JSON3.read(json_str, Dict{String,Any})
         return true, model_validate(T, parsed; kwargs...)
@@ -722,7 +723,7 @@ updated2 = model_copy(user, Dict(:name => "Bob", :age => 30))
 
 See also: [`model_copy!`](@ref), [`model_validate`](@ref)
 """
-function model_copy(instance::T, updates; validate::Bool=true)::T where T
+function model_copy(instance::T, updates::Any; validate::Bool=true)::T where T
     # Get current field values
     current_values = Dict{Symbol,Any}()
     for fname in fieldnames(T)
@@ -796,7 +797,7 @@ model_copy!(user, Dict(:name => "Alicia", :email => "alicia@example.com"))
 
 See also: [`model_copy`](@ref), [`model_validate`](@ref)
 """
-function model_copy!(instance::T, updates; validate::Bool=true)::T where T
+function model_copy!(instance::T, updates::Any; validate::Bool=true)::T where T
     # Check if type is mutable
     if !ismutabletype(T)
         throw(ErrorException("model_copy! only works with mutable structs. Use model_copy for immutable structs."))
@@ -909,12 +910,12 @@ show_rules(User)
 
 See also: [`@model`](@ref), [`@rules`](@ref)
 """
-function show_rules(io::IO, ::Type{T}) where T
+function show_rules(io::IO, ::Type{T})::Nothing where T
     spec = get(_MODEL_SPECS, T, nothing)
     if spec === nothing
         println(io, "No rules registered for type $T")
         println(io, "Use @model or @validated_model to register this type.")
-        return
+        return nothing
     end
 
     println(io, "Model: $T")
@@ -979,10 +980,14 @@ function show_rules(io::IO, ::Type{T}) where T
 
     # Show extra field handling
     println(io, "Extra fields: ", spec.extra)
+    return nothing
 end
 
 # Default to stdout
-show_rules(::Type{T}) where T = show_rules(stdout, T)
+function show_rules(::Type{T})::Nothing where T
+    show_rules(stdout, T)
+    return nothing
+end
 
 """
     _extract_rule_param(rule::Rule)
@@ -990,7 +995,7 @@ show_rules(::Type{T}) where T = show_rules(stdout, T)
 Internal helper to extract parameter information from common rule types.
 Returns a string representation of the rule's parameter, or `nothing` if unknown.
 """
-function _extract_rule_param(rule::Rule)
+function _extract_rule_param(rule::Rule)::Union{String,Nothing}
     # For common built-in rules, we can't easily extract the parameters
     # from the closure without reflection tricks. Instead, we document them.
     # This is a best-effort display helper.
@@ -1038,7 +1043,7 @@ Convert Julia type to JSON Schema type string.
 # Returns
 - `String`: JSON Schema type ("string", "integer", "number", "boolean", "null", "object", "array")
 """
-function _julia_type_to_json_schema_type(T)
+function _julia_type_to_json_schema_type(T::Any)::String
     # Handle Union{Nothing,T} - extract the non-Nothing type
     if _is_optional_type(T)
         types = Base.uniontypes(T)
@@ -1075,7 +1080,7 @@ Extract the minlen value from a minlen rule by testing the predicate.
 # Returns
 - `Union{Int,Nothing}`: The minimum length value, or `nothing` if not found
 """
-function _extract_minlen_value(rule::Rule)
+function _extract_minlen_value(rule::Rule)::Union{Int,Nothing}
     rule.code != :minlen && return nothing
 
     # Binary search for the minimum length
@@ -1103,7 +1108,7 @@ Extract the minimum value from a ge (greater than or equal) rule by testing the 
 # Returns
 - `Union{Number,Nothing}`: The minimum value, or `nothing` if not found
 """
-function _extract_ge_value(rule::Rule)
+function _extract_ge_value(rule::Rule)::Union{Number,Nothing}
     rule.code != :ge && return nothing
 
     # Try common values
@@ -1144,7 +1149,7 @@ Extract the maximum value from a le (less than or equal) rule by testing the pre
 # Returns
 - `Union{Number,Nothing}`: The maximum value, or `nothing` if not found
 """
-function _extract_le_value(rule::Rule)
+function _extract_le_value(rule::Rule)::Union{Number,Nothing}
     rule.code != :le && return nothing
 
     # Try common values
@@ -1189,7 +1194,7 @@ Extract the regex pattern from a regex rule by inspecting the predicate.
 This is a best-effort extraction. Due to Julia's closure implementation,
 we cannot directly extract the Regex object from the predicate function.
 """
-function _extract_regex_pattern(rule::Rule)
+function _extract_regex_pattern(rule::Rule)::Union{String,Nothing}
     rule.code != :regex && return nothing
 
     # Unfortunately, we cannot easily extract the Regex from the closure
@@ -1266,7 +1271,7 @@ json_schema = schema(User)
 
 See also: [`@model`](@ref), [`@rules`](@ref), [`show_rules`](@ref)
 """
-function schema(::Type{T}) where T
+function schema(::Type{T})::Dict{String,Any} where T
     spec = get(_MODEL_SPECS, T, nothing)
     spec === nothing && throw(ArgumentError("No model spec registered for $(T). Use @model."))
 
@@ -1382,7 +1387,7 @@ dict_str = model_dump(user; keys=:string)
 
 See also: [`model_dump_json`](@ref), [`model_validate`](@ref), [`model_copy`](@ref)
 """
-function model_dump(instance::T; keys::Symbol=:symbol) where T
+function model_dump(instance::T; keys::Symbol=:symbol)::Union{Dict{Symbol,Any}, Dict{String,Any}} where T
     if keys == :symbol
         result = Dict{Symbol,Any}()
         _extra_dict = nothing
@@ -1450,7 +1455,7 @@ json_str = model_dump_json(user)
 
 See also: [`model_dump`](@ref), [`model_validate_json`](@ref)
 """
-function model_dump_json(instance::T) where T
+function model_dump_json(instance::T)::String where T
     dict = model_dump(instance; keys=:string)
     return JSON3.write(dict)
 end
