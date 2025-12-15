@@ -625,6 +625,8 @@ julia --project=. examples/01_basic_usage.jl
 
 これらのサンプルはVSCodeのJulia拡張機能と連携して動作するよう設計されており、ホバードキュメント、オートコンプリート、定義へのジャンプ機能が利用できます。
 
+> **注記**: より高度な静的解析と型を考慮した診断機能を備えた開発体験を求める場合は、デフォルトのLanguageServer.jlの代わりに[JETLS.jl](https://github.com/aviatesk/JETLS.jl)の使用を検討してください。セットアップ手順については[JETLSドキュメント](https://aviatesk.github.io/JETLS.jl/)を参照してください。
+
 詳細は[`examples/README.md`](examples/README.md)をご覧ください。
 
 ---

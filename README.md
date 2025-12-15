@@ -627,6 +627,8 @@ julia --project=. examples/01_basic_usage.jl
 
 The examples are designed to work well with VSCode's Julia extension, providing hover documentation, autocomplete, and go-to-definition features.
 
+> **Note**: For enhanced development experience with advanced static analysis and type-aware diagnostics, consider using [JETLS.jl](https://github.com/aviatesk/JETLS.jl) instead of the default LanguageServer.jl. See the [JETLS documentation](https://aviatesk.github.io/JETLS.jl/) for setup instructions.
+
 See [`examples/README.md`](examples/README.md) for more details.
 
 ---

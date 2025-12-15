@@ -230,6 +230,120 @@ model_validate(Post, Dict(
 
 Supported collection types: `Vector{T}`, `Set{T}`, and any type implementing `AbstractArray` or `AbstractSet`.
 
+### Nested Struct Validation
+
+BoundaryTypes.jl automatically validates nested structs that are registered with `@model`.
+
+```julia
+@model struct Address
+    city::String
+    zipcode::String
+end
+
+@rules Address begin
+    field(:city, minlen(1))
+    field(:zipcode, regex(r"^\d{5}$"))
+end
+
+@model struct User
+    name::String
+    address::Address  # Nested model
+end
+
+@rules User begin
+    field(:name, minlen(2))
+end
+
+# Nested validation happens automatically
+user = model_validate(User, Dict(
+    :name => "Alice",
+    :address => Dict(:city => "Tokyo", :zipcode => "12345")
+))
+
+# Error paths include nested field names
+model_validate(User, Dict(
+    :name => "Bob",
+    :address => Dict(:city => "Osaka", :zipcode => "invalid")
+))
+# => ValidationError with 1 error(s):
+#      - address.zipcode [regex]: does not match required pattern (got="invalid")
+```
+
+**Features:**
+- **Automatic recursion**: Nested models are validated automatically
+- **Deep nesting**: Supports arbitrary nesting depth
+- **Clear error paths**: Errors show the full path (e.g., `address.zipcode`)
+- **Optional nested fields**: Works with `Union{Nothing,ModelType}` fields
+- **Nested defaults**: Supports default values for nested structs
+
+### Updating Models
+
+#### `model_copy` (Immutable Structs)
+
+Create a new instance with updated field values:
+
+```julia
+user = model_validate(User, Dict(:name => "Alice", :email => "alice@example.com", :age => 25))
+updated = model_copy(user, Dict(:age => 26))  # Returns new instance
+```
+
+- Validates the updated values by default
+- Use `validate=false` to skip validation
+
+#### `model_copy!` (Mutable Structs)
+
+Update a mutable struct instance in-place:
+
+```julia
+model_copy!(mutable_user, Dict(:age => 31))  # Modifies in-place
+```
+
+### Introspection
+
+#### `show_rules`
+
+Display validation rules for a registered model type:
+
+```julia
+show_rules(Signup)
+# Or specify an IO stream
+show_rules(io, Signup)
+```
+
+#### `schema`
+
+Generate a JSON Schema (Draft 7) for a model:
+
+```julia
+json_schema = schema(Signup)
+# Returns a Dict compatible with JSON Schema Draft 7
+```
+
+This is useful for:
+- API documentation
+- Client-side validation
+- Integration with OpenAPI/Swagger
+
+## Examples
+
+Comprehensive, runnable examples are available in the [`examples/`](https://github.com/daikichiba9511/BoundaryTypes.jl/tree/main/examples) directory:
+
+- **01_basic_usage.jl** - Fundamental concepts and validation basics
+- **02_advanced_rules.jl** - Advanced validation rules and custom validators
+- **03_nested_models.jl** - Nested struct validation
+- **04_collections.jl** - Array, vector, and set validation
+- **05_error_handling.jl** - Error handling patterns and best practices
+- **06_real_world.jl** - Real-world use cases (APIs, config files, ETL, etc.)
+
+Run any example with:
+```bash
+julia --project=. examples/01_basic_usage.jl
+```
+
+The examples are designed to work well with VSCode's Julia extension, providing hover documentation, autocomplete, and go-to-definition features.
+
+> **Note**: For enhanced development experience with advanced static analysis and type-aware diagnostics, consider using [JETLS.jl](https://github.com/aviatesk/JETLS.jl) instead of the default LanguageServer.jl. See the [JETLS documentation](https://aviatesk.github.io/JETLS.jl/) for setup instructions.
+
 ## See Also
 
 - [API Reference](api.md) - Complete API documentation
