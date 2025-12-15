@@ -373,7 +373,7 @@ values = Dict(:email => "user@example.com", :password => "SecurePass123")
 user = construct(User, values)
 ```
 """
-function construct(::Type{T}, values::Dict{Symbol,Any}) where T
+function construct(::Type{T}, values::Dict{Symbol,Any})::T where T
     args = Any[ values[n] for n in fieldnames(T) ]
     return T(args...)
 end
@@ -429,7 +429,7 @@ model_validate(User, Dict(:email => "invalid"))
 
 See also: [`try_model_validate`](@ref), [`@model`](@ref), [`@rules`](@ref)
 """
-function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:default) where T
+function model_validate(::Type{T}, raw; strict::Bool=true, extra::Symbol=:default)::T where T
     input = normalize(raw)
     spec = get(_MODEL_SPECS, T, nothing)
     spec === nothing && throw(ArgumentError("No model spec registered for $(T). Use @model."))
@@ -613,7 +613,7 @@ config = model_validate_json(Config, json_str)
 
 See also: [`try_model_validate_json`](@ref), [`model_validate`](@ref)
 """
-function model_validate_json(::Type{T}, json_str::AbstractString; kwargs...) where T
+function model_validate_json(::Type{T}, json_str::AbstractString; kwargs...)::T where T
     parsed = JSON3.read(json_str, Dict{String,Any})
     return model_validate(T, parsed; kwargs...)
 end
@@ -713,7 +713,7 @@ updated2 = model_copy(user, Dict(:name => "Bob", :age => 30))
 
 See also: [`model_copy!`](@ref), [`model_validate`](@ref)
 """
-function model_copy(instance::T, updates; validate::Bool=true) where T
+function model_copy(instance::T, updates; validate::Bool=true)::T where T
     # Get current field values
     current_values = Dict{Symbol,Any}()
     for fname in fieldnames(T)
@@ -787,7 +787,7 @@ model_copy!(user, Dict(:name => "Alicia", :email => "alicia@example.com"))
 
 See also: [`model_copy`](@ref), [`model_validate`](@ref)
 """
-function model_copy!(instance::T, updates; validate::Bool=true) where T
+function model_copy!(instance::T, updates; validate::Bool=true)::T where T
     # Check if type is mutable
     if !ismutabletype(T)
         throw(ErrorException("model_copy! only works with mutable structs. Use model_copy for immutable structs."))
