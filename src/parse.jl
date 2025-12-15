@@ -1,3 +1,12 @@
+# This file contains validation and parsing functions for BoundaryTypes.jl
+# It depends on types defined in core.jl:
+#   - FieldError: Represents a validation error for a specific field
+#   - FieldSpec: Internal specification for a model field
+#   - RuleCtx: Context information passed to validation rule predicates
+#   - Rule: Represents a single validation rule
+#   - ModelSpec: Internal specification for a validated model type
+#   - ValidationError: Exception thrown when validation fails
+
 """
     normalize(raw)::Dict{Symbol,Any}
 
