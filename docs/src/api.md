@@ -24,6 +24,13 @@ model_copy
 model_copy!
 ```
 
+## Serialization Functions
+
+```@docs
+model_dump
+model_dump_json
+```
+
 ## Introspection
 
 ```@docs

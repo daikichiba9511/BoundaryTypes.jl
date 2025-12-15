@@ -13,13 +13,15 @@ BoundaryTypes.jl provides a macro-based system for declarative validation of str
 
 ## Quick Start
 
-### Define a Model with Validation Rules
+### Simple Usage (Recommended)
+
+The easiest way to get started is with `@validated_model`, which automatically validates on construction:
 
 ```julia
 using BoundaryTypes
 
-# 1. Define a model
-@model struct User
+# 1. Define a validated model
+@validated_model struct User
     email::String
     password::String
     age::Int = 0
@@ -28,56 +30,56 @@ end
 
 # 2. Define validation rules
 @rules User begin
-    field(:email, regex(r"^[^@\s]+@[^@\s]+\.[^@\s]+$"))
+    field(:email, email())
     field(:password, minlen(12), secret())
     field(:age, ge(0), le(150))
     field(:nickname, minlen(3))
 end
 
-# 3. Validate input
-user = model_validate(User, Dict(
-    :email => "user@example.com",
-    :password => "SecurePass123",
-    :age => 25
-))
+# 3. Constructor automatically validates - IDE autocomplete works!
+user = User(
+    email="user@example.com",
+    password="SecurePass123",
+    age=25
+)
 ```
 
-### Two Validation Approaches
+**Benefits:**
+- ✅ IDE autocomplete works (proper type inference)
+- ✅ Pydantic-like constructor experience
+- ✅ No need to call `model_validate` explicitly
 
-#### Approach 1: Explicit Validation (Pydantic-like)
+### Advanced Usage
+
+For more control over validation timing, use `@model` with explicit `model_validate`:
 
 ```julia
-@model struct Signup
-    email::String
-    password::String
+@model struct Config
+    host::String
+    port::Int
 end
 
-@rules Signup begin
-    field(:email, regex(r"@"))
-    field(:password, minlen(8))
+@rules Config begin
+    field(:host, minlen(1))
+    field(:port, ge(1), le(65535))
 end
 
-# Validate manually at boundaries
-signup = model_validate(Signup, raw_input)
+# Explicit validation call
+config = model_validate(Config, Dict(:host => "localhost", :port => 8080))
+
+# Or use safe (non-throwing) version
+ok, result = try_model_validate(Config, raw_data)
+if ok
+    # result::Config
+else
+    # result::ValidationError
+end
 ```
 
-#### Approach 2: Enforced Validation (Constructor Override)
-
-```julia
-@validated_model struct Signup
-    email::String
-    password::String
-end
-
-@rules Signup begin
-    field(:email, regex(r"@"))
-    field(:password, minlen(8))
-end
-
-# Constructor automatically validates
-signup = Signup(email="user@example.com", password="secure123")
-# Invalid input throws ValidationError automatically
-```
+**Use this when:**
+- You need custom constructor logic
+- You want to keep `@model` and validation separate
+- You're migrating existing code gradually
 
 ## Installation
 
@@ -328,7 +330,8 @@ This is useful for:
 
 Comprehensive, runnable examples are available in the [`examples/`](https://github.com/daikichiba9511/BoundaryTypes.jl/tree/main/examples) directory:
 
-- **01_basic_usage.jl** - Fundamental concepts and validation basics
+- **00_validated_model.jl** - Quick start with `@validated_model` (recommended for beginners)
+- **01_basic_usage.jl** - Fundamental concepts with `@model` and `model_validate`
 - **02_advanced_rules.jl** - Advanced validation rules and custom validators
 - **03_nested_models.jl** - Nested struct validation
 - **04_collections.jl** - Array, vector, and set validation
@@ -337,7 +340,7 @@ Comprehensive, runnable examples are available in the [`examples/`](https://gith
 
 Run any example with:
 ```bash
-julia --project=. examples/01_basic_usage.jl
+julia --project=. examples/00_validated_model.jl
 ```
 
 The examples are designed to work well with VSCode's Julia extension, providing hover documentation, autocomplete, and go-to-definition features.

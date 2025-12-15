@@ -29,11 +29,15 @@ Domain struct                         ← Julia-like (always-valid)
 
 # Basic Usage
 
+## Simple Usage (Recommended)
+
+The easiest way to get started is with `@validated_model`, which automatically validates on construction:
+
 ```julia
 using BoundaryTypes
 
-# Define a model
-@model struct Signup
+# Define a validated model
+@validated_model struct Signup
     email::String
     password::String
     age::Int = 0
@@ -42,20 +46,38 @@ end
 
 # Define validation rules
 @rules Signup begin
-    field(:email, regex(r"^[^@\\s]+@[^@\\s]+\\.[^@\\s]+\$"))
+    field(:email, email())
     field(:password, minlen(12), secret())
     field(:age, ge(0), le(150))
     field(:nickname, minlen(3))
 end
 
-# Validate input
-signup = model_validate(Signup, Dict(:email => "user@example.com",
-                                      :password => "SecurePass123"))
+# Constructor automatically validates - IDE autocomplete works!
+signup = Signup(email="user@example.com", password="SecurePass123", age=25)
+```
+
+## Advanced Usage
+
+For more control over validation timing, use `@model` with explicit `model_validate`:
+
+```julia
+@model struct Config
+    host::String
+    port::Int
+end
+
+@rules Config begin
+    field(:host, minlen(1))
+    field(:port, ge(1), le(65535))
+end
+
+# Explicit validation call
+config = model_validate(Config, Dict(:host => "localhost", :port => 8080))
 
 # Safe validation (does not throw)
-ok, result = try_model_validate(Signup, raw_data)
+ok, result = try_model_validate(Config, raw_data)
 if ok
-    # result::Signup
+    # result::Config
 else
     # result::ValidationError
 end
@@ -94,6 +116,7 @@ user = model_validate(User, Dict(
 
 ## Macros
 - `@model`: Define a validated model
+- `@validated_model`: Define a model with automatic constructor validation (recommended)
 - `@rules`: Define validation rules for a model
 
 ## Validation Functions
@@ -106,24 +129,52 @@ user = model_validate(User, Dict(
 - `model_copy`: Create a new instance with updated field values
 - `model_copy!`: Update a mutable struct instance in-place
 
+## Serialization Functions
+- `model_dump`: Convert instance to Dict (Symbol or String keys)
+- `model_dump_json`: Convert instance to JSON string
+
 ## Introspection Functions
 - `show_rules`: Display validation rules for a registered model type
+- `schema`: Generate JSON Schema (Draft 7) for a model
+- `available_rules`: Show all available validation rules
+- `string_rules`: Show string validation rules
+- `numeric_rules`: Show numeric validation rules
+- `collection_rules`: Show collection validation rules
+- `show_rule_examples`: Show comprehensive usage examples
 
 ## Error Types
 - `ValidationError`: Exception type for validation failures
 - `FieldError`: Individual field error information
 
 ## Validation Rules
-- `minlen(n)`: Minimum string length
+
+### String Rules
+- `minlen(n)`: Minimum string/collection length
+- `maxlen(n)`: Maximum string/collection length
 - `regex(re)`: Regular expression pattern matching
-- `ge(n)`: Greater than or equal constraint
-- `le(n)`: Less than or equal constraint
+- `email()`: Email address validation
+- `url()`: URL format validation
+- `uuid()`: UUID format validation
+- `choices(values)`: Enum-like validation
+
+### Numeric Rules
+- `ge(n)`: Greater than or equal (≥)
+- `le(n)`: Less than or equal (≤)
+- `gt(n)`: Strictly greater than (>)
+- `lt(n)`: Strictly less than (<)
+- `between(min, max)`: Range validation (inclusive)
+- `multiple_of(n)`: Divisibility check
+
+### Collection Rules
+- `each(rule)`: Apply rule to each element
+
+### Other Rules
 - `present()`: Require field presence in input
 - `notnothing()`: Prohibit `nothing` values
 - `secret()`: Mask values in error messages
 - `custom(f; code, msg)`: Define custom validation rules
 
-See also: [`@model`](@ref), [`@rules`](@ref), [`model_validate`](@ref)
+See also: [`@validated_model`](@ref), [`@model`](@ref), [`@rules`](@ref), [`model_validate`](@ref)
 """
 module BoundaryTypes
 

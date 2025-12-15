@@ -204,15 +204,43 @@ signup = model_validate_json(Signup, json_str)
 
 ## 開発者体験の最適化
 
-### コンストラクタ誘導（重要）
+### 自動バリデーション（@validated_model）推奨
 
 ```julia
+@validated_model struct Signup
+    email::String
+    password::String
+end
+
+@rules Signup begin
+    field(:email, email())
+    field(:password, minlen(12), secret())
+end
+
+# コンストラクタが自動的にバリデーション - IDE補完が効く！
+signup = Signup(email="user@example.com", password="SecurePass123")
+```
+
+**利点：**
+- IDE の型推論・補完が正しく動作
+- Pydantic ライクなコンストラクタ体験
+- `model_validate` を明示的に呼ぶ必要がない
+
+### 手動コンストラクタ誘導（高度）
+
+```julia
+@model struct Signup
+    email::String
+    password::String
+end
+
+# 独自のバリデーション済みコンストラクタ
 Signup(; kwargs...) = model_validate(Signup, kwargs)
 ```
 
 - `Signup(email="a@b.com", password="...")`
 - 見た目はコンストラクタ、実体は `model_validate`
-- validation を **強く誘導**できる
+- カスタムロジックが必要な場合に使用
 
 ---
 
@@ -235,20 +263,44 @@ FieldError(
 
 ## 最小サンプルコード
 
+### @validated_model を使用（推奨）
+
 ```julia
-@model struct Signup
+@validated_model struct Signup
     email::String
     password::String
 end
 
 @rules Signup begin
-    field(:email, regex(r"@"))
+    field(:email, email())
     field(:password, minlen(12), secret())
 end
 
+# コンストラクタが自動的にバリデーション
 Signup(email="foo@example.com", password="short")
 # => ValidationError
-#   - password [minlen]: string too short (got=***)
+#   - email [email]: invalid email format (got="foo@example.com")
+#   - password [minlen]: too short (got=***)
+```
+
+### @model + model_validate を使用（高度）
+
+```julia
+@model struct Config
+    host::String
+    port::Int
+end
+
+@rules Config begin
+    field(:host, minlen(1))
+    field(:port, ge(1), le(65535))
+end
+
+# 明示的なバリデーション呼び出し
+config = model_validate(Config, Dict(:host => "", :port => 0))
+# => ValidationError
+#   - host [minlen]: too short (got="")
+#   - port [ge]: must satisfy >= constraint (got=0)
 ```
 
 ---
